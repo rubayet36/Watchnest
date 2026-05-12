@@ -1,12 +1,21 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { useAuth } from '@/context/AuthContext'
 
 export default function LoginPage() {
-  const { signInWithGoogle } = useAuth()
+  const { signInWithGoogle, user, loading: authLoading } = useAuth()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
+  const router = useRouter()
+
+  // Redirect to home if already authenticated
+  useEffect(() => {
+    if (!authLoading && user) {
+      router.replace('/')
+    }
+  }, [user, authLoading, router])
 
   async function handleLogin() {
     setLoading(true)
