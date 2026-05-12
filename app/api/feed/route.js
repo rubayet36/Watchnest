@@ -2,6 +2,8 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 
+export const runtime = 'edge'
+
 export async function GET(request) {
   try {
     const cookieStore = await cookies()
@@ -69,7 +71,10 @@ export async function GET(request) {
     const posts   = Object.values(merged)
     const hasMore = (data || []).length === PAGE_SIZE
 
-    return NextResponse.json({ posts, nextPage: hasMore ? page + 1 : null })
+    return NextResponse.json(
+      { posts, nextPage: hasMore ? page + 1 : null },
+      { headers: { 'Cache-Control': 's-maxage=30, stale-while-revalidate=60' } }
+    )
   } catch (e) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }

@@ -14,25 +14,30 @@ export function AuthProvider({ children }) {
 
   const fetchProfile = useCallback(async (authUser) => {
     if (!authUser) return null
-    try {
-      const res = await fetch('/api/profile-ensure', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: authUser.id }),
-      })
-      if (!res.ok) throw new Error('profile fetch failed')
-      const { profile } = await res.json()
-      return profile
-    } catch {
-      // Fallback profile from auth metadata
-      return {
-        id:         authUser.id,
-        name:       authUser.user_metadata?.full_name || authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'User',
-        avatar_url: authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture || null,
-        email:      authUser.email,
-        username:   authUser.email?.split('@')[0] || 'user',
-      }
+    // Build profile instantly from JWT metadata — no network round trip needed.
+    // The /api/profile-ensure POST will still run in the background to upsert
+    // the DB row, but we don't block the UI waiting for it.
+    const instant = {
+      id:         authUser.id,
+      name:       authUser.user_metadata?.full_name || authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'User',
+      avatar_url: authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture || null,
+      email:      authUser.email,
+      username:   authUser.email?.split('@')[0] || 'user',
     }
+    // Fire-and-forget: upsert the DB row without blocking the UI
+    fetch('/api/profile-ensure', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: authUser.id }),
+    }).then(r => r.ok ? r.json() : null)
+      .then(data => {
+        // Merge in any extra DB fields (bio, etc.) once the response arrives
+        if (data?.profile && mounted.current) {
+          setProfile(prev => ({ ...instant, ...data.profile }))
+        }
+      })
+      .catch(() => {}) // silently ignore — instant profile is already shown
+    return instant
   }, [])
 
   useEffect(() => {
