@@ -1,7 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 
-export async function middleware(request) {
+export async function proxy(request) {
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
@@ -22,15 +22,20 @@ export async function middleware(request) {
   )
 
   const { data: { user } } = await supabase.auth.getUser()
-
   const { pathname } = request.nextUrl
 
-  // Redirect unauthenticated users to login
-  if (!user && pathname !== '/login' && !pathname.startsWith('/auth')) {
+  // Public routes — no auth required
+  const isPublic =
+    pathname === '/login' ||
+    pathname.startsWith('/auth') ||
+    pathname.startsWith('/api/manifest') ||
+    pathname === '/sw.js' ||
+    pathname === '/manifest.json'
+
+  if (!user && !isPublic) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
-  // Redirect authenticated users away from login
   if (user && pathname === '/login') {
     return NextResponse.redirect(new URL('/', request.url))
   }

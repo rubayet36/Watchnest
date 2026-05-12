@@ -1,6 +1,39 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  /* config options here */
-};
+  images: {
+    // Modern formats — AVIF first (best compression), WebP fallback
+    formats: ['image/avif', 'image/webp'],
 
-export default nextConfig;
+    // Serve TMDB posters at optimal sizes matching our UI
+    deviceSizes: [390, 640, 750, 1080],
+    imageSizes: [64, 88, 128, 256],
+
+    // Cache optimized images for 7 days
+    minimumCacheTTL: 604800,
+
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'image.tmdb.org',
+        pathname: '/t/p/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'lh3.googleusercontent.com', // Google profile photos
+      },
+    ],
+  },
+
+  // Compress responses
+  compress: true,
+
+  // Strict mode catches bugs earlier
+  reactStrictMode: true,
+
+  // Experimental: faster builds with partial prerendering (Next.js 15+)
+  experimental: {
+    optimizePackageImports: ['framer-motion', 'lucide-react', 'date-fns'],
+  },
+}
+
+export default nextConfig

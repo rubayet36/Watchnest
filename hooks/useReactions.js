@@ -1,80 +1,64 @@
 'use client'
 
-import { useState, useCallback } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/context/AuthContext'
+import { authFetch } from '@/lib/auth-fetch'
+import toast from 'react-hot-toast'
 
 export function useReactions(postId) {
   const { user } = useAuth()
-  const supabase = createClient()
   const queryClient = useQueryClient()
 
   const toggleReaction = useMutation({
     mutationFn: async (reactionType) => {
       if (!user) throw new Error('Not authenticated')
-
-      // Check if reaction exists
-      const { data: existing } = await supabase
-        .from('reactions')
-        .select('id')
-        .eq('post_id', postId)
-        .eq('user_id', user.id)
-        .eq('reaction_type', reactionType)
-        .single()
-
-      if (existing) {
-        await supabase.from('reactions').delete().eq('id', existing.id)
-      } else {
-        // Remove old reaction from this user on this post
-        await supabase.from('reactions')
-          .delete()
-          .eq('post_id', postId)
-          .eq('user_id', user.id)
-
-        await supabase.from('reactions').insert({
-          post_id: postId,
-          user_id: user.id,
-          reaction_type: reactionType,
-        })
-      }
+      const res  = await authFetch('/api/reactions', { method: 'POST', body: JSON.stringify({ post_id: postId, reaction_type: reactionType }) })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Reaction failed')
+      return json
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['feed'] })
-      queryClient.invalidateQueries({ queryKey: ['movie'] })
+      queryClient.invalidateQueries({ queryKey: ['moviePosts'] })
     },
+    onError: (e) => toast.error(e.message),
   })
 
-  return { toggleReaction: toggleReaction.mutate }
+  return {
+    toggleReaction: toggleReaction.mutate,
+    isReacting: toggleReaction.isPending,
+  }
 }
 
 export function useWatchlist() {
   const { user } = useAuth()
-  const supabase = createClient()
   const queryClient = useQueryClient()
 
   const toggleSave = useMutation({
     mutationFn: async (postId) => {
       if (!user) throw new Error('Not authenticated')
-
-      const { data: existing } = await supabase
-        .from('saves')
-        .select('id')
-        .eq('post_id', postId)
-        .eq('user_id', user.id)
-        .single()
-
-      if (existing) {
-        await supabase.from('saves').delete().eq('id', existing.id)
-      } else {
-        await supabase.from('saves').insert({ post_id: postId, user_id: user.id })
-      }
+      const res  = await authFetch('/api/saves', { method: 'POST', body: JSON.stringify({ post_id: postId }) })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Save failed')
+      return json
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['feed'] })
       queryClient.invalidateQueries({ queryKey: ['watchlist'] })
+      if (data.saved) {
+        toast.success('Added to watchlist ✓')
+      } else {
+        toast('Removed from watchlist', {
+          icon: '🗑️',
+          style: { background: '#1c1c2e', color: '#e2e8f0', border: '1px solid rgba(255,255,255,0.08)' },
+        })
+      }
     },
+    onError: (e) => toast.error(e.message),
   })
 
-  return { toggleSave: toggleSave.mutate }
+  return {
+    toggleSave: toggleSave.mutate,
+    isSaving: toggleSave.isPending,
+  }
 }

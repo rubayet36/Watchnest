@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WatchNest — You're Offline</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0d0d1a;
+      color: #e2e8f0;
+      font-family: 'Outfit', system-ui, sans-serif;
+      min-height: 100dvh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 2rem;
+    }
+    .card {
+      background: rgba(28,28,46,0.8);
+      border: 1px solid rgba(139,92,246,0.2);
+      border-radius: 24px;
+      padding: 2.5rem 2rem;
+      max-width: 360px;
+      width: 100%;
+    }
+    .icon { font-size: 4rem; margin-bottom: 1.25rem; }
+    h1 {
+      font-size: 1.5rem; font-weight: 900; margin-bottom: 0.75rem;
+      background: linear-gradient(135deg, #a78bfa, #f43f5e);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    p { color: #64748b; font-size: 0.9375rem; line-height: 1.6; margin-bottom: 1.5rem; }
+    button {
+      padding: 0.75rem 1.5rem;
+      background: linear-gradient(135deg, #7c3aed, #db2777);
+      border: none; border-radius: 12px; cursor: pointer;
+      color: white; font-weight: 700; font-size: 0.9375rem;
+      font-family: inherit;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">📡</div>
+    <h1>You're Offline</h1>
+    <p>WatchNest needs a connection to load fresh content. Check your network and try again.</p>
+    <button onclick="location.reload()">Try Again</button>
+  </div>
+</body>
+</html>
