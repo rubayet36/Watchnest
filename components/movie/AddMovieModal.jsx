@@ -27,14 +27,14 @@ const S = {
   movieRow: { display:'flex', alignItems:'center', gap:12, padding:'0.625rem', borderRadius:12, cursor:'pointer', width:'100%', textAlign:'left', background:'none', border:'none', fontFamily:'inherit' },
 }
 
-export default function AddMovieModal({ onClose }) {
+export default function AddMovieModal({ onClose, initialMovie = null }) {
   const { user } = useAuth()
   const { query, results, loading, search, clear } = useMovieSearch()
-  const [selectedMovie, setSelectedMovie] = useState(null)
+  const [selectedMovie, setSelectedMovie] = useState(initialMovie)
   const [note, setNote]         = useState('')
   const [category, setCategory] = useState(CATEGORIES[0].id)
   const [catOpen, setCatOpen]   = useState(false)
-  const [step, setStep]         = useState(1)
+  const [step, setStep]         = useState(initialMovie ? 2 : 1)
   const [submitError, setSubmitError] = useState(null)
   const queryClient = useQueryClient()
 

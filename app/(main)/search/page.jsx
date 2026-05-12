@@ -4,12 +4,15 @@ import { useState } from 'react'
 import { useMovieSearch } from '@/hooks/useMovieSearch'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Search, X, Star } from 'lucide-react'
+import { Search, X, Star, Plus } from 'lucide-react'
 import { getPosterUrl } from '@/lib/tmdb'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import PosterImage from '@/components/ui/PosterImage'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useQuery } from '@tanstack/react-query'
+import dynamic from 'next/dynamic'
+
+const AddMovieModal = dynamic(() => import('@/components/movie/AddMovieModal'), { ssr: false })
 
 async function searchNest(term) {
   if (!term || term.length < 2) return []
@@ -21,6 +24,7 @@ async function searchNest(term) {
 export default function SearchPage() {
   const [input, setInput] = useState('')
   const [searchMode, setSearchMode] = useState('nest')
+  const [addingMovie, setAddingMovie] = useState(null)
   const { results: tmdbResults, loading: tmdbLoading, search: tmdbSearch, clear } = useMovieSearch()
 
   const { data: nestResults, isLoading: nestLoading } = useQuery({
@@ -126,12 +130,14 @@ export default function SearchPage() {
             <motion.div key={movie.tmdb_id || movie.id || i}
               initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }}
               transition={{ delay: i * 0.04 }}
+              style={{ position: 'relative' }}
             >
-              <Link href={`/movie/${movie.tmdb_id || movie.id}`} style={{ textDecoration: 'none' }}>
+              <Link href={`/movie/${movie.tmdb_id || movie.id}`} style={{ textDecoration: 'none', display: 'block' }}>
                 <div style={{
                   display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.875rem',
                   background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
                   borderRadius: 16, transition: 'border-color .15s, background .15s',
+                  paddingRight: searchMode === 'tmdb' ? '3.5rem' : '0.875rem',
                 }}
                   onMouseEnter={e => { e.currentTarget.style.borderColor='rgba(139,92,246,0.3)'; e.currentTarget.style.background='rgba(139,92,246,0.06)' }}
                   onMouseLeave={e => { e.currentTarget.style.borderColor='rgba(255,255,255,0.08)'; e.currentTarget.style.background='rgba(255,255,255,0.04)' }}
@@ -170,10 +176,41 @@ export default function SearchPage() {
                   </div>
                 </div>
               </Link>
+
+              {/* Add to Nest button — TMDB mode only */}
+              {searchMode === 'tmdb' && (
+                <button
+                  onClick={e => { e.preventDefault(); e.stopPropagation(); setAddingMovie(movie) }}
+                  title="Add to WatchNest"
+                  style={{
+                    position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
+                    width: 36, height: 36, borderRadius: 10, border: 'none', cursor: 'pointer',
+                    background: 'linear-gradient(135deg,#7c3aed,#db2777)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    boxShadow: '0 4px 16px rgba(124,58,237,0.45)',
+                    transition: 'transform .15s, box-shadow .15s',
+                    flexShrink: 0,
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.transform='translateY(-50%) scale(1.12)'; e.currentTarget.style.boxShadow='0 6px 22px rgba(124,58,237,0.65)' }}
+                  onMouseLeave={e => { e.currentTarget.style.transform='translateY(-50%) scale(1)'; e.currentTarget.style.boxShadow='0 4px 16px rgba(124,58,237,0.45)' }}
+                >
+                  <Plus size={18} color="white" />
+                </button>
+              )}
             </motion.div>
           ))}
         </div>
       )}
+
+      {/* Quick-add modal triggered from TMDB search results */}
+      <AnimatePresence>
+        {addingMovie && (
+          <AddMovieModal
+            initialMovie={addingMovie}
+            onClose={() => setAddingMovie(null)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   )
 }
