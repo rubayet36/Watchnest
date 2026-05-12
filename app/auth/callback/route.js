@@ -28,8 +28,10 @@ export async function GET(request) {
     console.error('[auth/callback] code exchange error:', error?.message)
   }
 
-  // No code param means implicit flow token is in the URL hash —
-  // redirect to home and let the client-side Supabase pick it up
-  return NextResponse.redirect(`${origin}/login?error=auth_failed`)
+  // No code param = implicit flow — token is in the URL hash.
+  // The server can't read URL hashes, so redirect to the home page.
+  // The client-side onAuthStateChange in AuthContext will pick up the
+  // session automatically from the hash fragment.
+  return NextResponse.redirect(`${origin}/`)
 }
 
