@@ -1,0 +1,5 @@
+[build.environment]
+  # Netlify's secret scanner aggressively flags all environment variables found in the build output.
+  # However, NEXT_PUBLIC_* variables are *supposed* to be embedded in the public client bundle by Next.js.
+  # This tells the Netlify scanner to ignore these intentionally public keys.
+  SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_TMDB_BASE_URL,NEXT_PUBLIC_TMDB_API_KEY,NEXT_PUBLIC_TMDB_IMAGE_BASE,NEXT_PUBLIC_SUPABASE_URL,NEXT_PUBLIC_SUPABASE_ANON_KEY"
