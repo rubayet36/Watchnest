@@ -185,6 +185,7 @@ export default function ProfilePage({ params }) {
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: i * 0.04 }}
+              style={{ minWidth: 0 }}
             >
               <Link href={`/movie/${post.tmdb_id}`} style={{ display: 'block', textDecoration: 'none' }}>
                 <div style={{ position: 'relative', aspectRatio: '2/3', borderRadius: 12, overflow: 'hidden', background: '#1c1c2e' }}
