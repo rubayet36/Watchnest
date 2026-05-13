@@ -1,6 +1,7 @@
 'use client'
 
-import { useInfiniteQuery } from '@tanstack/react-query'
+import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect } from 'react'
 
 const PAGE_SIZE = 10
 
@@ -18,6 +19,20 @@ async function fetchFeedPage({ pageParam = 0, genreFilter, userFilter }) {
 
 export function useFeed({ genreFilter, userFilter } = {}) {
   const cacheKey = `feed_cache_${genreFilter||'all'}_${userFilter||'all'}`
+  const queryClient = useQueryClient()
+
+  // Hydration-safe cache injection
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const cached = localStorage.getItem(cacheKey)
+        const currentData = queryClient.getQueryData(['feed', genreFilter, userFilter])
+        if (cached && !currentData) {
+          queryClient.setQueryData(['feed', genreFilter, userFilter], { pages: [JSON.parse(cached)], pageParams: [0] })
+        }
+      } catch(e) {}
+    }
+  }, [cacheKey, genreFilter, userFilter, queryClient])
 
   return useInfiniteQuery({
     queryKey:         ['feed', genreFilter, userFilter],
@@ -28,16 +43,6 @@ export function useFeed({ genreFilter, userFilter } = {}) {
         try { localStorage.setItem(cacheKey, JSON.stringify(data)) } catch(e){}
       }
       return data
-    },
-    initialData: () => {
-      if (typeof window === 'undefined') return undefined
-      try {
-        const cached = localStorage.getItem(cacheKey)
-        if (cached) {
-          return { pages: [JSON.parse(cached)], pageParams: [0] }
-        }
-      } catch(e){}
-      return undefined
     },
     initialPageParam: 0,
     getNextPageParam: (lastPage) => lastPage.nextPage ?? undefined,
