@@ -7,7 +7,7 @@ export async function POST(request) {
     if (!user) return unauthorized()
 
     const body = await request.json()
-    const { tmdb_id, title, poster_path, genres, tmdb_rating, release_year, category, personal_note } = body
+    const { tmdb_id, title, poster_path, genres, tmdb_rating, release_year, category, personal_note, media_type } = body
 
     if (!tmdb_id || !title) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -50,6 +50,7 @@ export async function POST(request) {
       release_year:  release_year || null,
       category:      category || 'all-time-fav',
       personal_note: personal_note?.trim() || null,
+      media_type:    media_type || 'movie',
     }).select().single()
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })

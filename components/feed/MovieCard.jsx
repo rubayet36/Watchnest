@@ -3,13 +3,16 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Bookmark, BookmarkCheck, Star, MessageCircle, ChevronDown } from 'lucide-react'
+import { Bookmark, BookmarkCheck, Star, MessageCircle, MessageSquareText, ChevronDown, Share2, Edit2 } from 'lucide-react'
 import { getPosterUrl } from '@/lib/tmdb'
 import PosterImage from '@/components/ui/PosterImage'
 import { getCategoryById, timeAgo, REACTIONS } from '@/lib/utils'
 import { useReactions, useWatchlist } from '@/hooks/useReactions'
 import { useAuth } from '@/context/AuthContext'
 import Avatar from '@/components/ui/Avatar'
+import ShareModal from '@/components/feed/ShareModal'
+import EditPostModal from '@/components/movie/EditPostModal'
+import CommentSection from '@/components/feed/CommentSection'
 
 // ─── Category badge color map (inline-safe) ──────────────────
 const CAT_COLORS = {
@@ -121,8 +124,15 @@ export default function MovieCard({ post, currentUserId, priority = false }) {
   const category = getCategoryById(post.category)
   const catColor = CAT_COLORS[post.category] || '#8b5cf6'
   const [showAllNotes, setShowAllNotes] = useState(false)
+  const [showShare, setShowShare] = useState(false)
+  const [showEdit, setShowEdit] = useState(false)
+  const [showComments, setShowComments] = useState(false)
   const poster = getPosterUrl(post.poster_path)
   const postedBy = post.profiles
+
+  const isAnime = post.genres?.includes('Animation') && post.media_type === 'tv'
+  const mediaLabel = isAnime ? 'ANIME' : (post.media_type === 'tv' ? 'TV SERIES' : 'MOVIE')
+  const mediaColor = isAnime ? '#ec4899' : (post.media_type === 'tv' ? '#3b82f6' : '#10b981')
 
   return (
     <motion.article
@@ -150,27 +160,57 @@ export default function MovieCard({ post, currentUserId, priority = false }) {
             </p>
           </div>
         </Link>
-        <button
-          onClick={() => toggleSave(post.id)}
-          disabled={isSaving}
-          title={isSaved ? 'Remove from Watchlist' : 'Add to Watchlist'}
-          style={{
-            background: 'none', border: 'none', cursor: isSaving ? 'wait' : 'pointer',
-            color: isSaved ? '#f59e0b' : '#475569', padding: '0.375rem',
-            borderRadius: 10, transition: 'color .15s', opacity: isSaving ? 0.5 : 1,
-          }}
-          onMouseEnter={e => { if (!isSaving) e.currentTarget.style.color = isSaved ? '#fbbf24' : '#94a3b8' }}
-          onMouseLeave={e => e.currentTarget.style.color = isSaved ? '#f59e0b' : '#475569'}
-        >
-          {isSaved ? <BookmarkCheck size={20} /> : <Bookmark size={20} />}
-        </button>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          {currentUserId === post.user_id && (
+            <button
+              onClick={() => setShowEdit(true)}
+              title="Edit post"
+              style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: '#475569', padding: '0.375rem',
+                borderRadius: 10, transition: 'color .15s',
+              }}
+              onMouseEnter={e => e.currentTarget.style.color = '#3b82f6'}
+              onMouseLeave={e => e.currentTarget.style.color = '#475569'}
+            >
+              <Edit2 size={18} />
+            </button>
+          )}
+          <button
+            onClick={() => setShowShare(true)}
+            title="Share with a partner"
+            style={{
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: '#475569', padding: '0.375rem',
+              borderRadius: 10, transition: 'color .15s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.color = '#8b5cf6'}
+            onMouseLeave={e => e.currentTarget.style.color = '#475569'}
+          >
+            <Share2 size={18} />
+          </button>
+          <button
+            onClick={() => toggleSave(post.id)}
+            disabled={isSaving}
+            title={isSaved ? 'Remove from Watchlist' : 'Add to Watchlist'}
+            style={{
+              background: 'none', border: 'none', cursor: isSaving ? 'wait' : 'pointer',
+              color: isSaved ? '#f59e0b' : '#475569', padding: '0.375rem',
+              borderRadius: 10, transition: 'color .15s', opacity: isSaving ? 0.5 : 1,
+            }}
+            onMouseEnter={e => { if (!isSaving) e.currentTarget.style.color = isSaved ? '#fbbf24' : '#94a3b8' }}
+            onMouseLeave={e => e.currentTarget.style.color = isSaved ? '#f59e0b' : '#475569'}
+          >
+            {isSaved ? <BookmarkCheck size={20} /> : <Bookmark size={20} />}
+          </button>
+        </div>
       </div>
 
       {/* Body */}
       <div style={{ display: 'flex', gap: '1rem', padding: '0 1rem 1rem' }}>
         {/* Poster */}
         <div style={{ flexShrink: 0 }}>
-          <Link href={`/movie/${post.tmdb_id}`}>
+          <Link href={`/media/${post.media_type || 'movie'}/${post.tmdb_id}`}>
             <div style={{ position: 'relative', width: 88, height: 128, borderRadius: 12, overflow: 'hidden', background: '#1c1c2e', boxShadow: '0 4px 16px rgba(0,0,0,0.4)' }}>
               <PosterImage src={poster} alt={post.title} fill sizes="88px" priority={priority} />
               <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(to top,rgba(0,0,0,0.8),transparent)', padding: '0.375rem', display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -183,9 +223,9 @@ export default function MovieCard({ post, currentUserId, priority = false }) {
 
         {/* Info */}
         <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          {/* Category */}
-          {category && (
-            <div>
+          {/* Badges */}
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+            {category && (
               <span style={{
                 display: 'inline-block', padding: '3px 10px', borderRadius: 99,
                 fontSize: '0.7rem', fontWeight: 700,
@@ -193,11 +233,18 @@ export default function MovieCard({ post, currentUserId, priority = false }) {
               }}>
                 {category.label}
               </span>
-            </div>
-          )}
+            )}
+            <span style={{
+              display: 'inline-block', padding: '3px 10px', borderRadius: 99,
+              fontSize: '0.7rem', fontWeight: 700,
+              background: mediaColor + '22', border: `1px solid ${mediaColor}44`, color: mediaColor,
+            }}>
+              {mediaLabel}
+            </span>
+          </div>
 
           {/* Title */}
-          <Link href={`/movie/${post.tmdb_id}`} style={{ textDecoration: 'none' }}>
+          <Link href={`/media/${post.media_type || 'movie'}/${post.tmdb_id}`} style={{ textDecoration: 'none' }}>
             <h3 style={{ margin: 0, fontSize: '0.9375rem', fontWeight: 800, color: '#e2e8f0', lineHeight: 1.3, transition: 'color .15s' }}
               onMouseEnter={e => e.currentTarget.style.color = '#c4b5fd'}
               onMouseLeave={e => e.currentTarget.style.color = '#e2e8f0'}
@@ -247,10 +294,43 @@ export default function MovieCard({ post, currentUserId, priority = false }) {
         </div>
       </div>
 
-      {/* Reactions */}
-      <div style={{ padding: '0.75rem 1rem', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+      {/* Reactions & Comments Bar */}
+      <div style={{ padding: '0.75rem 1rem', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: '1rem' }}>
         <ReactionBar post={post} />
+        
+        <button
+          onClick={() => setShowComments(!showComments)}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            padding: '0.375rem 0.75rem', borderRadius: 99, fontSize: '0.8125rem', fontWeight: 600,
+            border: showComments ? '1px solid rgba(59,130,246,0.4)' : '1px solid rgba(255,255,255,0.1)',
+            background: showComments ? 'rgba(59,130,246,0.15)' : 'rgba(255,255,255,0.05)',
+            color: showComments ? '#93c5fd' : '#64748b',
+            cursor: 'pointer', fontFamily: 'inherit', transition: 'all .15s',
+          }}
+        >
+          <MessageSquareText size={16} />
+          <span>Comment</span>
+        </button>
       </div>
+
+      <AnimatePresence>
+        {showComments && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            style={{ overflow: 'hidden' }}
+          >
+            <CommentSection post={post} />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showShare && <ShareModal post={post} onClose={() => setShowShare(false)} />}
+        {showEdit && <EditPostModal post={post} onClose={() => setShowEdit(false)} />}
+      </AnimatePresence>
     </motion.article>
   )
 }

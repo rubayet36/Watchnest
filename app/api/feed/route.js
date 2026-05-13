@@ -72,8 +72,7 @@ export async function GET(request) {
     const hasMore = (data || []).length === PAGE_SIZE
 
     return NextResponse.json(
-      { posts, nextPage: hasMore ? page + 1 : null },
-      { headers: { 'Cache-Control': 's-maxage=30, stale-while-revalidate=60' } }
+      { posts, nextPage: hasMore ? page + 1 : null }
     )
   } catch (e) {
     return NextResponse.json({ error: e.message }, { status: 500 })

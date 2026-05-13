@@ -19,6 +19,18 @@ export async function POST(request) {
     } else {
       await supabase.from('reactions').delete().eq('post_id', post_id).eq('user_id', user.id)
       await supabase.from('reactions').insert({ post_id, user_id: user.id, reaction_type })
+
+      // Create notification
+      const { data: postData } = await supabase.from('posts').select('user_id').eq('id', post_id).single()
+      if (postData && postData.user_id !== user.id) {
+        await supabase.from('notifications').insert({
+          user_id: postData.user_id,
+          actor_id: user.id,
+          type: 'reaction',
+          post_id: post_id,
+        })
+      }
+
       return NextResponse.json({ reacted: true, reaction_type })
     }
   } catch (e) {

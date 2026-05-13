@@ -38,7 +38,8 @@ export async function GET(request) {
       .from('saves')
       .select(`
         id, created_at, watched,
-        posts(id, tmdb_id, title, poster_path, genres, tmdb_rating, release_year, category, personal_note,
+        shared_by (id, name, avatar_url),
+        posts(id, tmdb_id, title, poster_path, genres, tmdb_rating, release_year, category, personal_note, media_type,
           profiles:user_id(id, name, avatar_url, username))
       `)
       .eq('user_id', user.id)
@@ -51,6 +52,7 @@ export async function GET(request) {
       save_id: s.id,
       watched: s.watched || false,
       saved_at: s.created_at,
+      shared_by_user: s.shared_by,
     })).filter(Boolean)
 
     return NextResponse.json({ movies })

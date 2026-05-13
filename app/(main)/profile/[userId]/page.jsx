@@ -1,6 +1,7 @@
 'use client'
 
 import { use, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useProfile, useUserPosts } from '@/hooks/useProfile'
 import { useAuth } from '@/context/AuthContext'
 import Image from 'next/image'
@@ -10,8 +11,9 @@ import { getCategoryById, CATEGORIES, timeAgo } from '@/lib/utils'
 import { CardSkeleton, EmptyState } from '@/components/ui/LoadingSpinner'
 import Avatar from '@/components/ui/Avatar'
 import MovieCard from '@/components/feed/MovieCard'
-import { Film, Star, Calendar, Grid, List } from 'lucide-react'
-import { motion } from 'framer-motion'
+import { Film, Star, Calendar, Grid, List, MessageSquareHeart } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion'
+import UserReviewsModal from '@/components/profile/UserReviewsModal'
 
 export default function ProfilePage({ params }) {
   const { userId } = use(params)
@@ -20,6 +22,16 @@ export default function ProfilePage({ params }) {
   const { data: posts, isLoading: postsLoading } = useUserPosts(userId)
   const [activeCategory, setActiveCategory] = useState(null)
   const [view, setView] = useState('grid')
+  const [showReviews, setShowReviews] = useState(false)
+
+  // Fetch reviews for avg rating
+  const { data: reviewsData } = useQuery({
+    queryKey: ['reviews', userId],
+    queryFn: () => fetch(`/api/reviews?user=${userId}`).then(r => r.json()),
+    enabled: !!userId,
+  })
+  const reviews = reviewsData?.reviews || []
+  const avgRating = reviews.length > 0 ? (reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1) : '—'
 
   const isOwnProfile = user?.id === userId
 
@@ -106,9 +118,13 @@ export default function ProfilePage({ params }) {
           {[
             { icon: '🎬', value: totalMovies, label: 'Movies' },
             { icon: '⭐', value: topGenre || '—', label: 'Top Genre' },
+            { icon: '💖', value: avgRating, label: 'User Rating', onClick: () => setShowReviews(true) },
             { icon: '📅', value: displayProfile.created_at ? new Date(displayProfile.created_at).getFullYear() : '—', label: 'Joined' },
-          ].map(({ icon, value, label }) => (
-            <div key={label} style={{ textAlign: 'center' }}>
+          ].map(({ icon, value, label, onClick }) => (
+            <div key={label} onClick={onClick} style={{ textAlign: 'center', cursor: onClick ? 'pointer' : 'default', transition: 'transform 0.15s' }}
+              onMouseEnter={e => onClick && (e.currentTarget.style.transform = 'scale(1.05)')}
+              onMouseLeave={e => onClick && (e.currentTarget.style.transform = 'scale(1)')}
+            >
               <div style={{ fontSize: '1.125rem', marginBottom: 2 }}>{icon}</div>
               <div style={{
                 fontSize: '0.9375rem', fontWeight: 700, color: '#e2e8f0',
@@ -180,25 +196,35 @@ export default function ProfilePage({ params }) {
         </div>
       ) : view === 'grid' ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem' }}>
-          {filteredPosts.map((post, i) => (
+          {filteredPosts.map((post, i) => {
+            const isAnime = post.genres?.includes('Animation') && post.media_type === 'tv'
+            const mediaLabel = isAnime ? 'ANIME' : (post.media_type === 'tv' ? 'TV' : '')
+            const mediaColor = isAnime ? '#ec4899' : (post.media_type === 'tv' ? '#3b82f6' : '#10b981')
+
+            return (
             <motion.div key={post.id}
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ delay: i * 0.04 }}
               style={{ minWidth: 0 }}
             >
-              <Link href={`/movie/${post.tmdb_id}`} style={{ display: 'block', textDecoration: 'none' }}>
+              <Link href={`/media/${post.media_type || 'movie'}/${post.tmdb_id}`} style={{ display: 'block', textDecoration: 'none' }}>
                 <div style={{ position: 'relative', aspectRatio: '2/3', borderRadius: 12, overflow: 'hidden', background: '#1c1c2e' }}
                   className="poster-hover">
-                  <Image src={getPosterUrl(post.poster_path)} alt={post.title}
+                  <Image src={getPosterUrl(post.poster_path)} alt={post.title || post.name || 'Poster'}
                     fill style={{ objectFit: 'cover' }} sizes="33vw" />
+                  {mediaLabel && (
+                    <div style={{ position: 'absolute', top: 4, right: 4, background: `rgba(0,0,0,0.6)`, backdropFilter: 'blur(4px)', padding: '2px 5px', borderRadius: 4, fontSize: '0.55rem', fontWeight: 800, color: mediaColor, border: `1px solid ${mediaColor}55` }}>
+                      {mediaLabel}
+                    </div>
+                  )}
                 </div>
                 <p style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {post.title}
                 </p>
               </Link>
             </motion.div>
-          ))}
+          )})}
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -207,6 +233,10 @@ export default function ProfilePage({ params }) {
           ))}
         </div>
       )}
+
+      <AnimatePresence>
+        {showReviews && <UserReviewsModal profile={displayProfile} onClose={() => setShowReviews(false)} />}
+      </AnimatePresence>
     </div>
   )
 }

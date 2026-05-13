@@ -126,13 +126,23 @@ export default function SearchPage() {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          {results.map((movie, i) => (
+          {results.map((movie, i) => {
+            let isAnime = false
+            if (searchMode === 'tmdb') {
+               isAnime = movie.genre_ids?.includes(16) && movie.media_type === 'tv'
+            } else {
+               isAnime = movie.genres?.includes('Animation') && movie.media_type === 'tv'
+            }
+            const mediaLabel = isAnime ? 'ANIME' : (movie.media_type === 'tv' ? 'TV' : 'MOVIE')
+            const mediaColor = isAnime ? '#ec4899' : (movie.media_type === 'tv' ? '#3b82f6' : '#10b981')
+
+            return (
             <motion.div key={movie.tmdb_id || movie.id || i}
               initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }}
               transition={{ delay: i * 0.04 }}
               style={{ position: 'relative' }}
             >
-              <Link href={`/movie/${movie.tmdb_id || movie.id}`} style={{ textDecoration: 'none', display: 'block' }}>
+              <Link href={`/media/${movie.media_type || 'movie'}/${movie.tmdb_id || movie.id}`} style={{ textDecoration: 'none', display: 'block' }}>
                 <div style={{
                   display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.875rem',
                   background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
@@ -144,13 +154,14 @@ export default function SearchPage() {
                 >
                   {/* Poster */}
                   <div style={{ width: 56, height: 80, borderRadius: 10, overflow: 'hidden', flexShrink: 0, position: 'relative', background: '#1c1c2e' }}>
-                    <PosterImage src={getPosterUrl(movie.poster_path)} alt={movie.title}
+                    <PosterImage src={getPosterUrl(movie.poster_path)} alt={movie.title || movie.name}
                       fill sizes="56px" style={{ objectFit: 'cover' }} />
                   </div>
                   {/* Info */}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 700, color: '#e2e8f0', fontSize: '0.9375rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {movie.title}
+                      {movie.title || movie.name}
+                      <span style={{ marginLeft:8, fontSize:'0.65rem', padding:'2px 5px', background:`${mediaColor}22`, color:mediaColor, border:`1px solid ${mediaColor}44`, borderRadius:4, textDecoration:'none', verticalAlign:'middle' }}>{mediaLabel}</span>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: 4, fontSize: '0.8125rem', color: '#64748b' }}>
                       <span>{movie.release_year || movie.release_date?.split('-')[0]}</span>
@@ -198,7 +209,7 @@ export default function SearchPage() {
                 </button>
               )}
             </motion.div>
-          ))}
+          )})}
         </div>
       )}
 

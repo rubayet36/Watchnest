@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import { Home, Search, Bookmark, User, Plus, Film } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import Avatar from '@/components/ui/Avatar'
+import NotificationsDropdown from '@/components/layout/NotificationsDropdown'
 
 export default function Navbar({ onAddClick }) {
   const pathname = usePathname()
@@ -120,6 +121,7 @@ export default function Navbar({ onAddClick }) {
             padding: '0.75rem', borderTop: '1px solid rgba(255,255,255,0.06)',
           }}>
             <Avatar user={profile} size={34} />
+            <NotificationsDropdown />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{
                 fontSize: '0.8125rem', fontWeight: 600, color: '#e2e8f0',
@@ -168,7 +170,7 @@ export default function Navbar({ onAddClick }) {
             </span>
           </div>
         </Link>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <button onClick={onAddClick} style={{
             display: 'flex', alignItems: 'center', gap: 4,
             padding: '0.375rem 0.75rem',
@@ -178,6 +180,7 @@ export default function Navbar({ onAddClick }) {
           }}>
             <Plus size={14} /> Add
           </button>
+          {user && <NotificationsDropdown />}
           {user && (
             <Link href={profileHref}>
               <Avatar user={profile} size={30} />

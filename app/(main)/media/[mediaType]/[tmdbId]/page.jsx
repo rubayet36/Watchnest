@@ -21,19 +21,19 @@ async function fetchMoviePosts(tmdbId) {
   return json.posts || []
 }
 
-export default function MovieDetailPage({ params }) {
-  const { tmdbId } = use(params)
+export default function MediaDetailPage({ params }) {
+  const { tmdbId, mediaType } = use(params)
   const { user } = useAuth()
   const router = useRouter()
 
   const { data: movie, isLoading: movieLoading } = useQuery({
-    queryKey: ['movie', tmdbId],
-    queryFn: () => getMovieDetails(parseInt(tmdbId)),
+    queryKey: ['media', mediaType, tmdbId],
+    queryFn: () => getMovieDetails(parseInt(tmdbId), mediaType),
     staleTime: 3600_000,
   })
 
   const { data: posts, isLoading: postsLoading } = useQuery({
-    queryKey: ['moviePosts', tmdbId],
+    queryKey: ['mediaPosts', mediaType, tmdbId],
     queryFn: () => fetchMoviePosts(tmdbId),
     staleTime: 30_000,
   })
@@ -50,6 +50,8 @@ export default function MovieDetailPage({ params }) {
   const runtime  = movie.runtime ? `${Math.floor(movie.runtime/60)}h ${movie.runtime%60}m` : null
   const cast     = movie.credits?.cast?.slice(0, 6) || []
 
+  const isAnime = movie.genres?.some(g => g.id === 16 || g.name === 'Animation') && mediaType === 'tv'
+
   const allReactions  = posts?.flatMap(p => p.reactions || []) || []
   const reactionCounts = allReactions.reduce((acc, r) => ({ ...acc, [r.reaction_type]: (acc[r.reaction_type]||0)+1 }), {})
 
@@ -59,7 +61,7 @@ export default function MovieDetailPage({ params }) {
       {/* ── Backdrop ─────────────────────────────────────── */}
       <div style={{ position:'relative', height: 240, overflow:'hidden' }}>
         {backdrop ? (
-          <Image src={backdrop} alt={movie.title} fill sizes="100vw" priority style={{ objectFit:'cover' }} />
+          <Image src={backdrop} alt={movie.title || movie.name || 'Backdrop'} fill sizes="100vw" priority style={{ objectFit:'cover' }} />
         ) : (
           <div style={{ position:'absolute', inset:0, background:'linear-gradient(135deg,#3b0764,#0f172a)' }} />
         )}
@@ -85,12 +87,12 @@ export default function MovieDetailPage({ params }) {
         <div style={{ display:'flex', gap:'1rem', marginBottom:'1.25rem' }}>
           {/* Poster */}
           <div style={{ position:'relative', width:100, height:148, borderRadius:16, overflow:'hidden', flexShrink:0, border:'2px solid rgba(255,255,255,0.12)', boxShadow:'0 20px 40px rgba(0,0,0,0.5)' }}>
-            <Image src={poster} alt={movie.title} fill sizes="100px" style={{ objectFit:'cover' }} />
+            <Image src={poster} alt={movie.title || movie.name || 'Poster'} fill sizes="100px" style={{ objectFit:'cover' }} />
           </div>
 
           {/* Meta */}
           <div style={{ flex:1, paddingTop:80 }}>
-            <h1 style={{ margin:'0 0 6px', fontSize:'1.25rem', fontWeight:900, color:'#f1f5f9', lineHeight:1.2 }}>{movie.title}</h1>
+            <h1 style={{ margin:'0 0 6px', fontSize:'1.25rem', fontWeight:900, color:'#f1f5f9', lineHeight:1.2 }}>{movie.title || movie.name}</h1>
             <div style={{ display:'flex', flexWrap:'wrap', gap:'0.625rem', alignItems:'center', marginBottom:8 }}>
               {movie.vote_average > 0 && (
                 <span style={{ display:'flex', alignItems:'center', gap:3, color:'#fbbf24', fontWeight:700, fontSize:'0.875rem' }}>
@@ -100,6 +102,26 @@ export default function MovieDetailPage({ params }) {
               {movie.release_date && <span style={{ color:'#64748b', fontSize:'0.8125rem' }}>{movie.release_date.split('-')[0]}</span>}
               {runtime && <span style={{ display:'flex', alignItems:'center', gap:3, color:'#64748b', fontSize:'0.8125rem' }}><Clock size={12}/>{runtime}</span>}
               {movie.original_language && <span style={{ display:'flex', alignItems:'center', gap:3, color:'#64748b', fontSize:'0.8125rem', textTransform:'uppercase' }}><Globe size={12}/>{movie.original_language}</span>}
+              
+              {/* Media Type Badge */}
+              {mediaType === 'tv' && (
+                <span style={{ 
+                  fontSize: '0.65rem', padding: '2px 6px', borderRadius: 4, fontWeight: 800,
+                  background: isAnime ? '#ec489922' : '#3b82f622', 
+                  color: isAnime ? '#ec4899' : '#3b82f6', 
+                  border: `1px solid ${isAnime ? '#ec489955' : '#3b82f655'}` 
+                }}>
+                  {isAnime ? 'ANIME' : 'TV SERIES'}
+                </span>
+              )}
+              {mediaType === 'movie' && (
+                <span style={{ 
+                  fontSize: '0.65rem', padding: '2px 6px', borderRadius: 4, fontWeight: 800,
+                  background: '#10b98122', color: '#10b981', border: '1px solid #10b98155' 
+                }}>
+                  MOVIE
+                </span>
+              )}
             </div>
             <div style={{ display:'flex', flexWrap:'wrap', gap:6 }}>
               {movie.genres?.slice(0,4).map(g => <Badge key={g.id} variant="genre">{g.name}</Badge>)}

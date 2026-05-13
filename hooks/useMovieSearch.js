@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useCallback, useRef } from 'react'
-import { searchMovies } from '@/lib/tmdb'
+import { searchMulti } from '@/lib/tmdb'
 
 export function useMovieSearch() {
   const [query, setQuery] = useState('')
@@ -21,7 +21,7 @@ export function useMovieSearch() {
       setLoading(true)
       setError(null)
       try {
-        const data = await searchMovies(value)
+        const data = await searchMulti(value)
         setResults(data.slice(0, 8))
       } catch (e) {
         setError(e.message)

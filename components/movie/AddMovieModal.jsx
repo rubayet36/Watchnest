@@ -45,17 +45,21 @@ export default function AddMovieModal({ onClose, initialMovie = null }) {
       const genreMap = {28:'Action',35:'Comedy',18:'Drama',27:'Horror',878:'Sci-Fi',10749:'Romance',53:'Thriller',16:'Animation',80:'Crime',12:'Adventure',14:'Fantasy',99:'Documentary'}
       const genres = (selectedMovie.genre_ids || []).map(id => genreMap[id] || 'Other')
 
+      const releaseDate = selectedMovie.release_date || selectedMovie.first_air_date
+      const releaseYear = releaseDate ? parseInt(releaseDate.split('-')[0]) : null
+
       const res = await authFetch('/api/posts', {
         method: 'POST',
         body: JSON.stringify({
           tmdb_id:       selectedMovie.id,
-          title:         selectedMovie.title,
+          title:         selectedMovie.title || selectedMovie.name,
           poster_path:   selectedMovie.poster_path || null,
           genres,
           tmdb_rating:   selectedMovie.vote_average || null,
-          release_year:  selectedMovie.release_date ? parseInt(selectedMovie.release_date.split('-')[0]) : null,
+          release_year:  releaseYear,
           category,
           personal_note: note.trim() || null,
+          media_type:    selectedMovie.media_type || 'movie',
         }),
       })
 
@@ -143,9 +147,12 @@ export default function AddMovieModal({ onClose, initialMovie = null }) {
                           }
                         </div>
                         <div style={{ flex:1, minWidth:0 }}>
-                          <div style={{ color:'#e2e8f0', fontWeight:600, fontSize:'0.875rem', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{movie.title}</div>
+                          <div style={{ color:'#e2e8f0', fontWeight:600, fontSize:'0.875rem', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                            {movie.title || movie.name}
+                            {movie.media_type === 'tv' && <span style={{ marginLeft:6, fontSize:'0.65rem', padding:'1px 4px', background:'rgba(139,92,246,0.2)', color:'#a78bfa', borderRadius:4 }}>TV</span>}
+                          </div>
                           <div style={{ color:'#64748b', fontSize:'0.75rem', marginTop:2 }}>
-                            {movie.release_date?.split('-')[0] || 'N/A'} · ⭐ {movie.vote_average?.toFixed(1)}
+                            {(movie.release_date || movie.first_air_date)?.split('-')[0] || 'N/A'} · ⭐ {movie.vote_average?.toFixed(1)}
                           </div>
                         </div>
                       </button>
@@ -169,8 +176,11 @@ export default function AddMovieModal({ onClose, initialMovie = null }) {
                   }
                 </div>
                 <div style={{ flex:1 }}>
-                  <div style={{ fontWeight:700, color:'#e2e8f0', fontSize:'0.9375rem' }}>{selectedMovie.title}</div>
-                  <div style={{ color:'#64748b', fontSize:'0.8125rem', marginTop:2 }}>{selectedMovie.release_date?.split('-')[0]}</div>
+                  <div style={{ fontWeight:700, color:'#e2e8f0', fontSize:'0.9375rem' }}>
+                    {selectedMovie.title || selectedMovie.name}
+                    {selectedMovie.media_type === 'tv' && <span style={{ marginLeft:6, fontSize:'0.65rem', padding:'1px 4px', background:'rgba(139,92,246,0.2)', color:'#a78bfa', borderRadius:4 }}>TV</span>}
+                  </div>
+                  <div style={{ color:'#64748b', fontSize:'0.8125rem', marginTop:2 }}>{(selectedMovie.release_date || selectedMovie.first_air_date)?.split('-')[0]}</div>
                   <div style={{ color:'#f59e0b', fontSize:'0.8125rem', marginTop:2 }}>⭐ {selectedMovie.vote_average?.toFixed(1)}</div>
                   <button onClick={() => { setStep(1); setSubmitError(null) }}
                     style={{ background:'none', border:'none', cursor:'pointer', color:'#8b5cf6', fontSize:'0.75rem', padding:0, marginTop:4, fontFamily:'inherit' }}>

@@ -68,23 +68,33 @@ function MySavesTab() {
 
   const SaveCard = ({ m }) => {
     const cat = getCategoryById(m.category)
+    const isAnime = m.genres?.includes('Animation') && m.media_type === 'tv'
+    const mediaLabel = isAnime ? 'ANIME' : (m.media_type === 'tv' ? 'TV' : 'MOVIE')
+    const mediaColor = isAnime ? '#ec4899' : (m.media_type === 'tv' ? '#3b82f6' : '#10b981')
+
     return (
       <motion.div initial={{ opacity:0, x:-8 }} animate={{ opacity:1, x:0 }}
         style={{ ...card, opacity: m.watched ? 0.65 : 1 }}>
-        <Link href={`/movie/${m.tmdb_id}`} style={{ flexShrink:0 }}>
+        <Link href={`/media/${m.media_type || 'movie'}/${m.tmdb_id}`} style={{ flexShrink:0 }}>
           <div style={{ position:'relative', width:58, height:84, borderRadius:10, overflow:'hidden', background:'#1c1c2e' }}>
             <PosterImage src={getPosterUrl(m.poster_path)} alt={m.title} fill sizes="58px" />
           </div>
         </Link>
         <div style={{ flex:1, minWidth:0 }}>
-          <Link href={`/movie/${m.tmdb_id}`} style={{ textDecoration:'none' }}>
+          <Link href={`/media/${m.media_type || 'movie'}/${m.tmdb_id}`} style={{ textDecoration:'none' }}>
             <h3 style={{ margin:'0 0 3px', fontSize:'0.9375rem', fontWeight:800, color: m.watched?'#64748b':'#e2e8f0', textDecoration: m.watched?'line-through':'none' }}>
               {m.title}
+              <span style={{ marginLeft:8, fontSize:'0.65rem', padding:'2px 5px', background:`${mediaColor}22`, color:mediaColor, border:`1px solid ${mediaColor}44`, borderRadius:4, textDecoration:'none', verticalAlign:'middle' }}>{mediaLabel}</span>
             </h3>
           </Link>
           <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:8 }}>
             {m.release_year && <span style={{ fontSize:'0.75rem', color:'#475569' }}>{m.release_year}</span>}
             <span style={{ fontSize:'0.7rem', padding:'2px 8px', borderRadius:99, background:'rgba(139,92,246,0.1)', color:'#a78bfa', border:'1px solid rgba(139,92,246,0.2)' }}>{cat?.label}</span>
+            {m.shared_by_user && (
+              <span style={{ display:'flex', alignItems:'center', gap:3, fontSize:'0.7rem', padding:'2px 8px', borderRadius:99, background:'rgba(244,63,94,0.1)', color:'#f43f5e', border:'1px solid rgba(244,63,94,0.2)' }}>
+                Shared by {m.shared_by_user.name}
+              </span>
+            )}
           </div>
           <button onClick={() => toggleWatched.mutate({ save_id: m.save_id, watched: !m.watched })}
             style={pill(m.watched, '#10b981')}>
