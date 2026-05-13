@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useFeed } from '@/hooks/useFeed'
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll'
 import { useAuth } from '@/context/AuthContext'
@@ -10,12 +10,13 @@ import { CardSkeleton, EmptyState, LoadingSpinner } from '@/components/ui/Loadin
 
 export default function HomePage() {
   const { user } = useAuth()
-  const [activeGenre, setActiveGenreState] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return sessionStorage.getItem('feed_genre') || null
-    }
-    return null
-  })
+  const [activeGenre, setActiveGenreState] = useState(null)
+
+  // Hydration-safe storage read
+  useEffect(() => {
+    const saved = sessionStorage.getItem('feed_genre')
+    if (saved) setActiveGenreState(saved)
+  }, [])
 
   const setActiveGenre = (genre) => {
     setActiveGenreState(genre)
