@@ -4,9 +4,16 @@ import { NextResponse } from 'next/server'
 export const runtime = 'edge'
 
 export async function GET(request) {
-  const { searchParams, origin } = new URL(request.url)
+  const url = new URL(request.url)
+  const searchParams = url.searchParams
   const code = searchParams.get('code')
   const next = searchParams.get('next') ?? '/'
+
+  // Netlify's internal router sometimes rewrites request.url to the raw .netlify.app domain.
+  // We read the forwarded host header to ensure we redirect back to the custom domain.
+  const host = request.headers.get('x-forwarded-host') || request.headers.get('host')
+  const protocol = request.headers.get('x-forwarded-proto') || 'https'
+  const origin = host ? `${protocol}://${host}` : url.origin
 
   if (code) {
     const supabase = await createClient()
