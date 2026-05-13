@@ -1,3 +1,5 @@
+export const runtime = 'edge'
+
 import { getAuthFromHeader } from '@/lib/api-auth'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'

@@ -10,7 +10,18 @@ import { CardSkeleton, EmptyState, LoadingSpinner } from '@/components/ui/Loadin
 
 export default function HomePage() {
   const { user } = useAuth()
-  const [activeGenre, setActiveGenre] = useState(null)
+  const [activeGenre, setActiveGenreState] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('feed_genre') || null
+    }
+    return null
+  })
+
+  const setActiveGenre = (genre) => {
+    setActiveGenreState(genre)
+    if (genre) sessionStorage.setItem('feed_genre', genre)
+    else sessionStorage.removeItem('feed_genre')
+  }
 
   const {
     data,

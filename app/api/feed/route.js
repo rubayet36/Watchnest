@@ -26,7 +26,7 @@ export async function GET(request) {
       .from('posts')
       .select(`
         id, tmdb_id, title, poster_path, genres, tmdb_rating,
-        release_year, category, personal_note, created_at, user_id,
+        release_year, category, personal_note, created_at, user_id, media_type,
         profiles:user_id ( id, name, avatar_url, username ),
         reactions ( reaction_type, user_id ),
         saves ( user_id )

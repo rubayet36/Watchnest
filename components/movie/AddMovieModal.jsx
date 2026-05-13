@@ -142,7 +142,7 @@ export default function AddMovieModal({ onClose, initialMovie = null }) {
                       >
                         <div style={{ width:36, height:52, borderRadius:8, overflow:'hidden', flexShrink:0, background:'#1c1c2e', position:'relative' }}>
                           {movie.poster_path
-                            ? <Image src={getPosterUrl(movie.poster_path,'w92')} alt={movie.title} fill sizes="36px" style={{ objectFit:'cover' }} />
+                            ? <Image src={getPosterUrl(movie.poster_path,'w92')} alt={movie.title || movie.name || 'Poster'} fill sizes="36px" style={{ objectFit:'cover' }} />
                             : <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:16 }}>🎬</div>
                           }
                         </div>
@@ -171,7 +171,7 @@ export default function AddMovieModal({ onClose, initialMovie = null }) {
               <div style={{ display:'flex', gap:12, padding:'0.875rem', background:'rgba(255,255,255,0.04)', borderRadius:16, border:'1px solid rgba(255,255,255,0.08)' }}>
                 <div style={{ width:56, height:80, borderRadius:10, overflow:'hidden', flexShrink:0, position:'relative', background:'#1c1c2e' }}>
                   {selectedMovie.poster_path
-                    ? <Image src={getPosterUrl(selectedMovie.poster_path,'w185')} alt={selectedMovie.title} fill sizes="56px" style={{ objectFit:'cover' }} />
+                    ? <Image src={getPosterUrl(selectedMovie.poster_path,'w185')} alt={selectedMovie.title || selectedMovie.name || 'Poster'} fill sizes="56px" style={{ objectFit:'cover' }} />
                     : <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:24 }}>🎬</div>
                   }
                 </div>

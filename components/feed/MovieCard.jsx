@@ -256,8 +256,8 @@ export default function MovieCard({ post, currentUserId, priority = false }) {
           {/* Year + genres */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
             {post.release_year && <span style={{ fontSize: '0.75rem', color: '#475569' }}>{post.release_year}</span>}
-            {post.genres?.slice(0, 3).map(g => (
-              <span key={g} style={{ fontSize: '0.6875rem', padding: '2px 8px', borderRadius: 99, background: 'rgba(255,255,255,0.06)', color: '#64748b' }}>{g}</span>
+            {post.genres?.slice(0, 3).map((g, gi) => (
+              <span key={`${g}-${gi}`} style={{ fontSize: '0.6875rem', padding: '2px 8px', borderRadius: 99, background: 'rgba(255,255,255,0.06)', color: '#64748b' }}>{g}</span>
             ))}
           </div>
 
