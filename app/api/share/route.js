@@ -1,4 +1,4 @@
-export const runtime = 'edge'
+
 
 import { getAuthFromHeader } from '@/lib/api-auth'
 import { createClient } from '@supabase/supabase-js'
