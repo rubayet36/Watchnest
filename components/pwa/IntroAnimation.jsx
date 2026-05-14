@@ -95,20 +95,19 @@ export default function IntroAnimation() {
           ))}
 
           {/* Logo Icon */}
-          <motion.div
+          <motion.img
+            src="/android-chrome-192x192.png"
+            alt="WatchNest"
             initial={{ scale: 0.3, opacity: 0, y: 20 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
             transition={{ duration: 0.7, ease: [0.34, 1.56, 0.64, 1], delay: 0.1 }}
             style={{
               width: 80, height: 80, borderRadius: 22,
-              background: 'linear-gradient(135deg, #7c3aed, #db2777)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 40, marginBottom: '1.25rem',
+              marginBottom: '1.25rem',
               boxShadow: '0 0 60px rgba(124,58,237,0.6), 0 0 120px rgba(219,39,119,0.3)',
+              objectFit: 'cover',
             }}
-          >
-            🎬
-          </motion.div>
+          />
 
           {/* WatchNest title */}
           <motion.h1

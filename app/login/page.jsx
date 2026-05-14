@@ -71,19 +71,13 @@ export default function LoginPage() {
 
         {/* Logo */}
         <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <div style={{
+          <img src="/android-chrome-192x192.png" alt="WatchNest" style={{
             width: 64, height: 64,
-            background: 'linear-gradient(135deg, #7c3aed, #db2777)',
             borderRadius: 18,
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: 28,
             marginBottom: '1rem',
             boxShadow: '0 8px 32px rgba(124,58,237,0.4)',
-          }}>
-            🎬
-          </div>
+            objectFit: 'cover',
+          }} />
           <h1 style={{
             fontSize: '1.875rem',
             fontWeight: 900,

@@ -73,7 +73,7 @@ export default function InstallPrompt() {
 
         {/* Icon */}
         <div style={{ width:48, height:48, borderRadius:12, overflow:'hidden', flexShrink:0, border:'1px solid rgba(255,255,255,0.1)' }}>
-          <Image src="/Red Black Typography Nine Brand Logo.png" alt="WatchNest" width={48} height={48} style={{ objectFit:'cover' }} />
+          <Image src="/android-chrome-192x192.png" alt="WatchNest" width={48} height={48} style={{ objectFit:'cover' }} />
         </div>
 
         {/* Text */}
@@ -122,7 +122,7 @@ export default function InstallPrompt() {
 
         <div style={{ display:'flex', alignItems:'flex-start', gap:'0.875rem' }}>
           <div style={{ width:44, height:44, borderRadius:10, overflow:'hidden', flexShrink:0, border:'1px solid rgba(255,255,255,0.1)' }}>
-            <Image src="/Red Black Typography Nine Brand Logo.png" alt="WatchNest" width={44} height={44} style={{ objectFit:'cover' }} />
+            <Image src="/apple-touch-icon.png" alt="WatchNest" width={44} height={44} style={{ objectFit:'cover' }} />
           </div>
           <div style={{ flex:1 }}>
             <p style={{ margin:'0 0 4px', fontWeight:800, fontSize:'0.9375rem', color:'#e2e8f0' }}>Install WatchNest</p>

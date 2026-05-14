@@ -3,7 +3,9 @@ const STATIC_ASSETS = [
   '/',
   '/offline.html',
   '/manifest.json',
-  '/Red Black Typography Nine Brand Logo.png',
+  '/favicon.ico',
+  '/android-chrome-192x192.png',
+  '/apple-touch-icon.png',
 ]
 
 // Install — pre-cache static assets

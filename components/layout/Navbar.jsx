@@ -47,13 +47,11 @@ export default function Navbar({ onAddClick }) {
           padding: '0.5rem 0.75rem', marginBottom: '1.5rem',
           textDecoration: 'none', borderRadius: 12,
         }}>
-          <div style={{
-            width: 36, height: 36, borderRadius: 10,
-            background: 'linear-gradient(135deg, #7c3aed, #db2777)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 18, flexShrink: 0,
+          <img src="/android-chrome-192x192.png" alt="WatchNest" style={{
+            width: 36, height: 36, borderRadius: 10, flexShrink: 0,
             boxShadow: '0 4px 12px rgba(124,58,237,0.4)',
-          }}>🎬</div>
+            objectFit: 'cover'
+          }} />
           <div>
             <div style={{
               fontWeight: 900, fontSize: '1.0625rem', lineHeight: 1.1,
@@ -153,11 +151,10 @@ export default function Navbar({ onAddClick }) {
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       }} className="mobile-header">
         <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', textDecoration: 'none' }}>
-          <div style={{
-            width: 30, height: 30, borderRadius: 8,
-            background: 'linear-gradient(135deg, #7c3aed, #db2777)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14,
-          }}>🎬</div>
+          <img src="/android-chrome-192x192.png" alt="WatchNest" style={{
+            width: 40, height: 40, borderRadius: 8, flexShrink: 0,
+            objectFit: 'cover'
+          }} />
           <div>
             <span style={{
               fontWeight: 900, fontSize: '1.125rem',

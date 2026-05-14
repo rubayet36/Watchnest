@@ -13,8 +13,12 @@ export const metadata = {
     title: 'WatchNest',
   },
   icons: {
-    icon: '/Red Black Typography Nine Brand Logo.png',
-    apple: '/Red Black Typography Nine Brand Logo.png',
+    icon: [
+      { url: '/favicon-32x32.png', sizes: '32x32', type: 'image/png' },
+      { url: '/favicon-16x16.png', sizes: '16x16', type: 'image/png' },
+      { url: '/favicon.ico', sizes: 'any' }
+    ],
+    apple: '/apple-touch-icon.png',
   },
 }
 
@@ -44,8 +48,8 @@ export default function RootLayout({ children }) {
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="WatchNest" />
-        <link rel="apple-touch-icon" href="/Red Black Typography Nine Brand Logo.png" />
-        <link rel="apple-touch-icon" sizes="180x180" href="/Red Black Typography Nine Brand Logo.png" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
         <meta name="msapplication-TileColor" content="#7c3aed" />
       </head>
       <body style={{ fontFamily: "'Outfit', system-ui, sans-serif" }} suppressHydrationWarning>

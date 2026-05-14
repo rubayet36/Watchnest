@@ -12,8 +12,8 @@ export async function GET() {
     orientation: "portrait-primary",
     categories: ["entertainment", "social"],
     icons: [
-      { src: "/Red Black Typography Nine Brand Logo.png", sizes: "192x192", type: "image/png", purpose: "any" },
-      { src: "/Red Black Typography Nine Brand Logo.png", sizes: "512x512", type: "image/png", purpose: "maskable" }
+      { src: "/android-chrome-192x192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+      { src: "/android-chrome-512x512.png", sizes: "512x512", type: "image/png", purpose: "any maskable" }
     ],
     shortcuts: [
       { name: "Home Feed", url: "/", description: "View your movie feed" },
