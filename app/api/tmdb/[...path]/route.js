@@ -13,6 +13,7 @@ export async function GET(request, { params }) {
 
     const { path = [] } = await params
     const endpoint = `/${path.map(encodeURIComponent).join('/')}`
+    const isSearchEndpoint = endpoint.startsWith('/search/')
     const incoming = new URL(request.url)
     const tmdbUrl = new URL(`${TMDB_BASE}${endpoint}`)
 
@@ -22,7 +23,7 @@ export async function GET(request, { params }) {
     })
 
     const response = await fetch(tmdbUrl.toString(), {
-      next: { revalidate: 60 * 60 },
+      ...(isSearchEndpoint ? { cache: 'no-store' } : { next: { revalidate: 60 * 60 } }),
       headers: { accept: 'application/json' },
     })
 
@@ -37,7 +38,12 @@ export async function GET(request, { params }) {
 
     return NextResponse.json(data, {
       headers: {
-        'Cache-Control': 's-maxage=3600, stale-while-revalidate=86400',
+        'Cache-Control': isSearchEndpoint
+          ? 'no-store, max-age=0'
+          : 's-maxage=3600, stale-while-revalidate=86400',
+        'Netlify-CDN-Cache-Control': isSearchEndpoint
+          ? 'no-store'
+          : 's-maxage=3600, stale-while-revalidate=86400',
       },
     })
   } catch (error) {

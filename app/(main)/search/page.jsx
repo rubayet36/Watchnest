@@ -132,7 +132,13 @@ function SearchContent() {
   const [searchMode, setSearchMode] = useState(initialMode)
   const [addingMovie, setAddingMovie] = useState(null)
 
-  const { results: tmdbSearchResults, loading: tmdbSearchLoading, search: tmdbSearch, clear } = useMovieSearch()
+  const {
+    results: tmdbSearchResults,
+    loading: tmdbSearchLoading,
+    error: tmdbSearchError,
+    search: tmdbSearch,
+    clear,
+  } = useMovieSearch()
 
   // Restore TMDB search on back-navigation
   const didInitRef = useRef(false)
@@ -175,7 +181,7 @@ function SearchContent() {
   })
 
   // ── TMDB: trending default (when no query typed) ──────────
-  const { data: trendingResults, isLoading: trendingLoading } = useQuery({
+  const { data: trendingResults, isLoading: trendingLoading, error: trendingError } = useQuery({
     queryKey: ['tmdbTrending'],
     queryFn: fetchTrending,
     enabled: searchMode === 'tmdb' && !isTyping,
@@ -183,7 +189,7 @@ function SearchContent() {
   })
 
   // Resolve what to display
-  let displayResults, isLoading, sectionTitle, SectionIcon
+  let displayResults, isLoading, sectionTitle, SectionIcon, displayError
 
   if (searchMode === 'nest') {
     displayResults = nestResults
@@ -194,11 +200,13 @@ function SearchContent() {
     if (isTyping) {
       displayResults = tmdbSearchResults
       isLoading      = tmdbSearchLoading
+      displayError   = tmdbSearchError
       sectionTitle   = 'Search Results'
       SectionIcon    = Search
     } else {
       displayResults = trendingResults
       isLoading      = trendingLoading
+      displayError   = trendingError?.message
       sectionTitle   = '🔥 Trending This Week'
       SectionIcon    = TrendingUp
     }
@@ -264,6 +272,16 @@ function SearchContent() {
       {isLoading ? (
         <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem' }}>
           <LoadingSpinner size="md" />
+        </div>
+      ) : displayError ? (
+        <div style={{ textAlign: 'center', padding: '3rem' }}>
+          <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>ðŸ“¡</div>
+          <p style={{ color: '#94a3b8', marginBottom: '0.35rem' }}>
+            TMDB search is unavailable.
+          </p>
+          <p style={{ color: '#64748b', margin: 0, fontSize: '0.875rem' }}>
+            {displayError}
+          </p>
         </div>
       ) : !displayResults || displayResults.length === 0 ? (
         <div style={{ textAlign: 'center', padding: '3rem' }}>
