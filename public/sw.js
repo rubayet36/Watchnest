@@ -1,5 +1,5 @@
-const STATIC_CACHE = 'watchnest-static-v4'
-const IMAGE_CACHE = 'watchnest-images-v4'
+const STATIC_CACHE = 'watchnest-static-v5'
+const IMAGE_CACHE = 'watchnest-images-v5'
 const STATIC_ASSETS = [
   '/offline.html',
   '/manifest.json',
@@ -9,6 +9,10 @@ const STATIC_ASSETS = [
 ]
 
 const MAX_IMAGE_CACHE_ITEMS = 80
+const NETWORK_ERROR_RESPONSE = new Response('', {
+  status: 504,
+  statusText: 'Gateway Timeout',
+})
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
@@ -37,15 +41,29 @@ async function trimCache(cacheName, maxItems) {
   await Promise.all(keys.slice(0, keys.length - maxItems).map((request) => cache.delete(request)))
 }
 
+async function offlinePageResponse() {
+  const cached = await caches.match('/offline.html')
+  return cached || new Response('You are offline.', {
+    status: 503,
+    statusText: 'Service Unavailable',
+    headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+  })
+}
+
+async function cachedOrNetworkError(request) {
+  const cached = await caches.match(request)
+  return cached || NETWORK_ERROR_RESPONSE.clone()
+}
+
 self.addEventListener('fetch', (event) => {
   const { request } = event
   const url = new URL(request.url)
 
   if (request.method !== 'GET') return
-  if (!url.origin.startsWith('http')) return
+  if (!url.protocol.startsWith('http')) return
 
   if (url.origin === self.location.origin && url.pathname.startsWith('/_next/')) {
-    event.respondWith(fetch(request))
+    event.respondWith(fetch(request).catch(() => cachedOrNetworkError(request)))
     return
   }
 
@@ -73,20 +91,18 @@ self.addEventListener('fetch', (event) => {
             })
           }
           return response
-        }).catch(() => cached)
+        }).catch(() => NETWORK_ERROR_RESPONSE.clone())
       })
     )
     return
   }
 
   if (request.mode === 'navigate') {
-    event.respondWith(
-      fetch(request).catch(() => caches.match('/offline.html'))
-    )
+    event.respondWith(fetch(request).catch(() => offlinePageResponse()))
     return
   }
 
-  event.respondWith(fetch(request).catch(() => caches.match(request)))
+  event.respondWith(fetch(request).catch(() => cachedOrNetworkError(request)))
 })
 
 self.addEventListener('push', (event) => {

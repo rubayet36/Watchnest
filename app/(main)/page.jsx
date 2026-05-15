@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useSyncExternalStore } from 'react'
+import { useMemo, useSyncExternalStore } from 'react'
 import { Database, Film, Plus, Sparkles, Users } from 'lucide-react'
 import { useFeed } from '@/hooks/useFeed'
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll'
@@ -57,7 +57,15 @@ export default function HomePage() {
   } = useFeed({ genreFilter: activeGenre })
 
   const sentinelRef = useInfiniteScroll(fetchNextPage, hasNextPage, isFetchingNextPage)
-  const posts = data?.pages.flatMap((p) => p.posts) ?? []
+  const posts = useMemo(() => {
+    const seen = new Set()
+    return (data?.pages.flatMap((p) => p.posts) ?? []).filter((post) => {
+      const key = post?.id || `${post?.media_type || 'movie'}-${post?.tmdb_id}-${post?.user_id || 'unknown'}`
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+  }, [data])
 
   return (
     <main className="feed-page page-shell mobile-safe-bottom">
@@ -124,7 +132,7 @@ export default function HomePage() {
       ) : (
         <section className="feed-stack" aria-label="Movie recommendation feed">
           {posts.map((post, i) => (
-            <MovieCard key={`${post.media_type || 'movie'}-${post.tmdb_id}-${post.id}`} post={post} currentUserId={user?.id} priority={i === 0} />
+            <MovieCard key={post.id} post={post} currentUserId={user?.id} priority={i === 0} />
           ))}
 
           <div ref={sentinelRef} className="feed-sentinel" />
