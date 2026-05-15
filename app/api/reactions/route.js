@@ -1,7 +1,8 @@
-export const runtime = 'edge'
+export const runtime = 'nodejs'
 
 import { getAuthFromHeader, unauthorized } from '@/lib/api-auth'
 import { NextResponse } from 'next/server'
+import { sendPushToUser } from '@/lib/push'
 
 export async function POST(request) {
   try {
@@ -23,13 +24,18 @@ export async function POST(request) {
       await supabase.from('reactions').insert({ post_id, user_id: user.id, reaction_type })
 
       // Create notification
-      const { data: postData } = await supabase.from('posts').select('user_id').eq('id', post_id).single()
+      const { data: postData } = await supabase.from('posts').select('user_id, title, tmdb_id, media_type').eq('id', post_id).single()
       if (postData && postData.user_id !== user.id) {
         await supabase.from('notifications').insert({
           user_id: postData.user_id,
           actor_id: user.id,
           type: 'reaction',
           post_id: post_id,
+        })
+        await sendPushToUser(postData.user_id, {
+          body: `${user.user_metadata?.full_name || user.email?.split('@')[0] || 'Someone'} reacted to ${postData.title}`,
+          tag: `reaction-${post_id}`,
+          url: `/media/${postData.media_type || 'movie'}/${postData.tmdb_id}`,
         })
       }
 

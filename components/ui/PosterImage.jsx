@@ -23,15 +23,33 @@ export default function PosterImage({ src, alt, sizes, style = {}, fill, width, 
     )
   }
 
-  const sharedProps = {
-    src,
-    alt: alt || '',
-    sizes,
-    priority,
-    loading: priority ? undefined : 'lazy',
-    style: { objectFit: 'cover', ...style },
+  const imageAlt = alt || ''
+  const imageStyle = { objectFit: 'cover', ...style }
+
+  if (fill) {
+    return (
+      <Image
+        src={src}
+        alt={imageAlt}
+        sizes={sizes}
+        priority={priority}
+        loading={priority ? undefined : 'lazy'}
+        style={imageStyle}
+        fill
+      />
+    )
   }
 
-  if (fill) return <Image {...sharedProps} fill />
-  return <Image {...sharedProps} width={width} height={height} />
+  return (
+    <Image
+      src={src}
+      alt={imageAlt}
+      sizes={sizes}
+      priority={priority}
+      loading={priority ? undefined : 'lazy'}
+      style={imageStyle}
+      width={width}
+      height={height}
+    />
+  )
 }

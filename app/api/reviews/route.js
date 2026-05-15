@@ -1,9 +1,10 @@
-export const runtime = 'edge'
+export const runtime = 'nodejs'
 
 import { getAuthFromHeader } from '@/lib/api-auth'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
+import { sendPushToUser } from '@/lib/push'
 
 export async function GET(request) {
   try {
@@ -65,6 +66,17 @@ export async function POST(request) {
     `).single()
 
     if (error) throw error
+
+    await supabase.from('notifications').insert({
+      user_id: reviewee_id,
+      actor_id: user.id,
+      type: 'review',
+    })
+    await sendPushToUser(reviewee_id, {
+      body: `${user.user_metadata?.full_name || user.email?.split('@')[0] || 'Someone'} reviewed your movie taste`,
+      tag: `review-${user.id}`,
+      url: `/profile/${user.id}`,
+    })
 
     return NextResponse.json({ success: true, review: data })
   } catch (err) {

@@ -10,10 +10,13 @@ export async function GET(request) {
   const next = searchParams.get('next') ?? '/'
 
   // Netlify's internal router sometimes rewrites request.url to the raw .netlify.app domain.
-  // We read the forwarded host header to ensure we redirect back to the custom domain.
-  const host = request.headers.get('x-forwarded-host') || request.headers.get('host')
-  const protocol = request.headers.get('x-forwarded-proto') || 'https'
-  const origin = host ? `${protocol}://${host}` : url.origin
+  // Prefer forwarded headers only when they are present; locally, request.url already has
+  // the correct http://localhost origin.
+  const forwardedHost = request.headers.get('x-forwarded-host')
+  const forwardedProto = request.headers.get('x-forwarded-proto')
+  const origin = forwardedHost
+    ? `${forwardedProto || url.protocol.replace(':', '')}://${forwardedHost}`
+    : url.origin
 
   if (code) {
     const supabase = await createClient()
@@ -43,4 +46,3 @@ export async function GET(request) {
   // session automatically from the hash fragment.
   return NextResponse.redirect(`${origin}/`)
 }
-

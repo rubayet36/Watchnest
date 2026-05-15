@@ -3,6 +3,7 @@
 import { getAuthFromHeader } from '@/lib/api-auth'
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { sendPushToUser } from '@/lib/push'
 
 /**
  * Service-role client — bypasses RLS.
@@ -55,6 +56,18 @@ export async function POST(request) {
     if (notifError) {
       console.warn('[share] notification insert failed (non-fatal):', notifError.message)
     }
+
+    const { data: post } = await admin
+      .from('posts')
+      .select('title, tmdb_id, media_type')
+      .eq('id', post_id)
+      .single()
+
+    await sendPushToUser(partner_id, {
+      body: `${user.user_metadata?.full_name || user.email?.split('@')[0] || 'Someone'} shared ${post?.title || 'a title'} with you`,
+      tag: `share-${post_id}`,
+      url: '/watchlist',
+    })
 
     return NextResponse.json({ success: true })
   } catch (err) {

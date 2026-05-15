@@ -62,7 +62,7 @@ export default function ProfilePage({ params }) {
       <div style={{ maxWidth: 640, margin: '0 auto', padding: '3rem 1rem', textAlign: 'center' }}>
         <p style={{ fontSize: '3rem' }}>👤</p>
         <h2 style={{ color: '#e2e8f0', marginTop: '1rem' }}>Profile not found</h2>
-        <p style={{ color: '#64748b', marginTop: '0.5rem' }}>This user doesn't exist or hasn't set up their profile yet.</p>
+        <p style={{ color: '#64748b', marginTop: '0.5rem' }}>This user doesn&apos;t exist or hasn&apos;t set up their profile yet.</p>
       </div>
     )
   }

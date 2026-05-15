@@ -1,7 +1,8 @@
-export const runtime = 'edge'
+export const runtime = 'nodejs'
 
 import { getAuthFromHeader, unauthorized } from '@/lib/api-auth'
 import { NextResponse } from 'next/server'
+import { sendPushToUser } from '@/lib/push'
 
 export async function GET(request) {
   try {
@@ -40,6 +41,11 @@ export async function POST(request) {
       user_id: following_id,
       actor_id: user.id,
       type: 'follow_request',
+    })
+    await sendPushToUser(following_id, {
+      body: `${user.user_metadata?.full_name || user.email?.split('@')[0] || 'Someone'} sent you a partner request`,
+      tag: `follow-${user.id}`,
+      url: '/watchlist',
     })
 
     return NextResponse.json({ success: true, status: 'pending' })

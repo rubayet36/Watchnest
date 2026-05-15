@@ -3,6 +3,21 @@ import { AuthProvider } from '@/context/AuthContext'
 import QueryProvider from '@/components/providers/QueryProvider'
 import { Toaster } from 'react-hot-toast'
 import ClientProviders from '@/components/providers/ClientProviders'
+import ShaderBackdrop from '@/components/layout/ShaderBackdrop'
+import { ThemeProvider } from '@/context/ThemeContext'
+import localFont from 'next/font/local'
+
+const geist = localFont({
+  src: '../public/fonts/geist-latin.woff2',
+  variable: '--font-app',
+  display: 'swap',
+})
+
+const gambarino = localFont({
+  src: '../public/fonts/gambarino-regular.woff2',
+  variable: '--font-username-face',
+  display: 'swap',
+})
 
 export const metadata = {
   title: "WatchNest — Your Circle's Movie Hub",
@@ -30,17 +45,23 @@ export const viewport = {
   userScalable: false,
 }
 
+const themeInitScript = `
+  try {
+    var theme = localStorage.getItem('watchnest-theme') === 'light' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = theme;
+    document.documentElement.style.colorScheme = theme;
+  } catch (_) {
+    document.documentElement.dataset.theme = 'dark';
+    document.documentElement.style.colorScheme = 'dark';
+  }
+`
+
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${geist.variable} ${gambarino.variable}`} data-theme="dark" style={{ colorScheme: 'dark' }} suppressHydrationWarning>
       <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link rel="preconnect" href="https://image.tmdb.org" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&display=swap"
-          rel="stylesheet"
-        />
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
         {/* PWA manifest */}
         <link rel="manifest" href="/api/manifest" />
         {/* iOS PWA */}
@@ -52,25 +73,28 @@ export default function RootLayout({ children }) {
         <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
         <meta name="msapplication-TileColor" content="#7c3aed" />
       </head>
-      <body style={{ fontFamily: "'Outfit', system-ui, sans-serif" }} suppressHydrationWarning>
-        <QueryProvider>
-          <AuthProvider>
-            {children}
-            <Toaster
-              position="bottom-right"
-              toastOptions={{
-                style: {
-                  background: '#1c1c2e',
-                  color: '#e2e8f0',
-                  border: '1px solid rgba(139,92,246,0.25)',
-                  borderRadius: 14,
-                  fontFamily: "'Outfit', system-ui, sans-serif",
-                },
-              }}
-            />
-            <ClientProviders />
-          </AuthProvider>
-        </QueryProvider>
+      <body suppressHydrationWarning>
+        <ShaderBackdrop />
+        <ThemeProvider>
+          <QueryProvider>
+            <AuthProvider>
+              {children}
+              <Toaster
+                position="bottom-right"
+                toastOptions={{
+                  style: {
+                    background: 'var(--toast-bg)',
+                    color: 'var(--text)',
+                    border: '1px solid var(--glass-border)',
+                    borderRadius: 14,
+                    fontFamily: 'var(--font-app), ui-sans-serif, system-ui, sans-serif',
+                  },
+                }}
+              />
+              <ClientProviders />
+            </AuthProvider>
+          </QueryProvider>
+        </ThemeProvider>
       </body>
     </html>
   )

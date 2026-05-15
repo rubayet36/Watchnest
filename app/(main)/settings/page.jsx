@@ -1,31 +1,29 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import Link from 'next/link'
+import { Moon, Save, Sun } from 'lucide-react'
+import toast from 'react-hot-toast'
 import { useAuth } from '@/context/AuthContext'
+import { useTheme } from '@/context/ThemeContext'
 import Avatar from '@/components/ui/Avatar'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
-import toast from 'react-hot-toast'
-import { Save } from 'lucide-react'
-
-const inp = {
-  width: '100%', boxSizing: 'border-box',
-  background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)',
-  borderRadius: 12, padding: '0.75rem 1rem', fontSize: '0.9375rem',
-  color: '#e2e8f0', fontFamily: 'inherit', outline: 'none', transition: 'border .15s',
-}
+import PushNotificationControl from '@/components/pwa/PushNotificationControl'
 
 export default function SettingsPage() {
   const { user, profile, updateProfile, loading, signOut } = useAuth()
-  const [name, setName]   = useState('')
-  const [bio, setBio]     = useState('')
+  const { theme, setTheme } = useTheme()
+  const [name, setName] = useState('')
+  const [bio, setBio] = useState('')
   const [saving, setSaving] = useState(false)
 
-  // Sync form with profile once loaded
   useEffect(() => {
-    if (profile) {
+    if (!profile) return
+    const timer = window.setTimeout(() => {
       setName(profile.name || '')
       setBio(profile.bio || '')
-    }
+    }, 0)
+    return () => window.clearTimeout(timer)
   }, [profile])
 
   async function handleSave() {
@@ -33,91 +31,282 @@ export default function SettingsPage() {
     const { error } = await updateProfile({ name: name.trim(), bio: bio.trim() })
     setSaving(false)
     if (error) toast.error('Failed to save changes')
-    else toast.success('Profile updated! ✨')
+    else toast.success('Profile updated')
   }
 
   return (
-    <div style={{ maxWidth: 520, margin: '0 auto', padding: '1.5rem 1rem' }}>
-      <h1 style={{ margin: '0 0 1.5rem', fontSize: '1.75rem', fontWeight: 900, background: 'linear-gradient(135deg,#a78bfa,#f43f5e)', WebkitBackgroundClip:'text', WebkitTextFillColor:'transparent', backgroundClip:'text' }}>
-        Settings
-      </h1>
+    <div className="page-shell mobile-safe-bottom">
+      <header className="page-header">
+        <div>
+          <p className="page-kicker">Preferences</p>
+          <h1 className="page-title gradient-text">Settings</h1>
+          <p className="page-subtitle">Tune your profile and app appearance.</p>
+        </div>
+      </header>
 
-      <div style={{ background:'rgba(28,28,46,0.7)', backdropFilter:'blur(20px)', border:'1px solid rgba(139,92,246,0.12)', borderRadius:24, padding:'1.5rem', display:'flex', flexDirection:'column', gap:'1.25rem' }}>
-
-        {/* Avatar row */}
-        <div style={{ display:'flex', alignItems:'center', gap:'1rem' }}>
+      <section className="settings-panel glass-panel glass-strong">
+        <div className="settings-profile">
           {loading ? (
-            <div style={{ width:64, height:64, borderRadius:'50%', background:'rgba(255,255,255,0.05)' }} />
+            <div className="settings-avatar-placeholder" />
           ) : (
             <Avatar user={profile} size={64} />
           )}
           <div>
-            <p style={{ margin:0, fontWeight:600, color:'#e2e8f0', fontSize:'0.9375rem' }}>{profile?.email || user?.email}</p>
-            <p style={{ margin:'2px 0 0', fontSize:'0.75rem', color:'#475569' }}>Avatar synced from Google</p>
+            <p className="settings-email">{profile?.email || user?.email}</p>
+            <p className="settings-muted">Avatar synced from Google</p>
           </div>
         </div>
 
-        <div style={{ borderTop:'1px solid rgba(255,255,255,0.07)' }} />
+        <div className="settings-divider" />
 
-        {/* Name */}
         <div>
-          <label style={{ display:'block', fontSize:'0.8125rem', fontWeight:600, color:'#94a3b8', marginBottom:'0.5rem' }}>Display Name</label>
+          <label className="settings-label">Appearance</label>
+          <div className="theme-segment" role="group" aria-label="Choose color theme">
+            <button
+              type="button"
+              onClick={() => setTheme('dark')}
+              className={theme === 'dark' ? 'is-active' : ''}
+            >
+              <Moon size={16} />
+              Dark
+            </button>
+            <button
+              type="button"
+              onClick={() => setTheme('light')}
+              className={theme === 'light' ? 'is-active' : ''}
+            >
+              <Sun size={16} />
+              White
+            </button>
+          </div>
+          <Link href="/shader" className="settings-inline-link">Open shader preview</Link>
+        </div>
+
+        <PushNotificationControl />
+
+        <div>
+          <label className="settings-label" htmlFor="display-name">Display Name</label>
           <input
+            id="display-name"
+            className="input"
             value={name}
-            onChange={e => setName(e.target.value)}
+            onChange={(e) => setName(e.target.value)}
             placeholder="Your name"
-            style={inp}
-            onFocus={e  => e.target.style.borderColor = '#8b5cf6'}
-            onBlur={e   => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
           />
         </div>
 
-        {/* Bio */}
         <div>
-          <label style={{ display:'block', fontSize:'0.8125rem', fontWeight:600, color:'#94a3b8', marginBottom:'0.5rem' }}>
-            Bio <span style={{ color:'#475569', fontWeight:400 }}>(optional)</span>
+          <label className="settings-label" htmlFor="profile-bio">
+            Bio <span>(optional)</span>
           </label>
           <textarea
+            id="profile-bio"
+            className="input settings-textarea"
             value={bio}
-            onChange={e => setBio(e.target.value)}
-            placeholder="Tell your friends about your movie taste…"
+            onChange={(e) => setBio(e.target.value)}
+            placeholder="Tell your friends about your movie taste..."
             rows={3}
             maxLength={200}
-            style={{ ...inp, resize:'none', lineHeight:1.6 }}
-            onFocus={e => e.target.style.borderColor = '#8b5cf6'}
-            onBlur={e  => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
           />
-          <p style={{ margin:'4px 0 0', fontSize:'0.75rem', color:'#475569', textAlign:'right' }}>{bio.length}/200</p>
+          <p className="settings-count">{bio.length}/200</p>
         </div>
 
-        {/* Save button */}
-        <button onClick={handleSave} disabled={saving} style={{
-          width:'100%', padding:'0.875rem', borderRadius:14,
-          background: saving ? 'rgba(124,58,237,0.4)' : 'linear-gradient(135deg,#7c3aed,#db2777)',
-          border:'none', cursor: saving ? 'not-allowed' : 'pointer',
-          color:'white', fontWeight:700, fontSize:'0.9375rem', fontFamily:'inherit',
-          display:'flex', alignItems:'center', justifyContent:'center', gap:'0.5rem',
-          transition:'opacity .2s', boxShadow:'0 4px 20px rgba(124,58,237,0.3)',
-        }}>
+        <button onClick={handleSave} disabled={saving} className="btn-primary">
           {saving ? <LoadingSpinner size="sm" /> : <Save size={16} />}
-          {saving ? 'Saving…' : 'Save Changes'}
+          {saving ? 'Saving...' : 'Save Changes'}
         </button>
 
-        <div style={{ borderTop:'1px solid rgba(255,255,255,0.07)' }} />
+        <div className="settings-divider" />
 
-        {/* Sign out */}
-        <button onClick={signOut} style={{
-          width:'100%', padding:'0.875rem', borderRadius:14,
-          background:'rgba(244,63,94,0.08)', border:'1px solid rgba(244,63,94,0.25)',
-          cursor:'pointer', color:'#f87171', fontWeight:600, fontSize:'0.9375rem',
-          fontFamily:'inherit', transition:'all .15s',
-        }}
-          onMouseEnter={e => e.target.style.background = 'rgba(244,63,94,0.15)'}
-          onMouseLeave={e => e.target.style.background = 'rgba(244,63,94,0.08)'}
-        >
+        <button onClick={signOut} className="settings-signout">
           Sign Out
         </button>
-      </div>
+      </section>
+
+      <style>{`
+        .settings-panel {
+          display: flex;
+          flex-direction: column;
+          gap: 1.25rem;
+          padding: clamp(1.1rem, 4vw, 1.5rem);
+        }
+
+        .settings-profile {
+          display: flex;
+          align-items: center;
+          gap: 1rem;
+          min-width: 0;
+        }
+
+        .settings-avatar-placeholder {
+          width: 64px;
+          height: 64px;
+          flex-shrink: 0;
+          border-radius: 50%;
+          background: var(--control-bg);
+        }
+
+        .settings-email {
+          margin: 0;
+          color: var(--text);
+          font-size: 0.95rem;
+          font-weight: 700;
+          overflow-wrap: anywhere;
+        }
+
+        .settings-muted {
+          margin: 0.2rem 0 0;
+          color: var(--muted);
+          font-size: 0.78rem;
+        }
+
+        .settings-divider {
+          height: 1px;
+          background: var(--control-border);
+        }
+
+        .push-control {
+          display: grid;
+          grid-template-columns: auto minmax(0, 1fr) auto;
+          align-items: center;
+          gap: 0.85rem;
+          padding: 0.85rem;
+          border: 1px solid var(--control-border);
+          border-radius: 16px;
+          background: var(--surface-row-bg);
+        }
+
+        .push-control svg {
+          color: var(--accent);
+        }
+
+        .push-control strong {
+          display: block;
+          color: var(--text);
+          font-size: 0.9rem;
+        }
+
+        .push-control p {
+          margin: 0.18rem 0 0;
+          color: var(--muted);
+          font-size: 0.76rem;
+          line-height: 1.35;
+        }
+
+        .push-control-warning {
+          color: #f43f5e !important;
+        }
+
+        .push-control button {
+          min-height: 34px;
+          padding: 0 0.8rem;
+          border: 1px solid var(--accent-soft);
+          border-radius: 999px;
+          background: var(--control-bg);
+          color: var(--text);
+          cursor: pointer;
+          font-weight: 750;
+        }
+
+        .push-control button:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
+        @media (max-width: 520px) {
+          .push-control {
+            grid-template-columns: auto minmax(0, 1fr);
+          }
+
+          .push-control button {
+            grid-column: 1 / -1;
+            width: 100%;
+          }
+        }
+
+        .settings-label {
+          display: block;
+          margin-bottom: 0.5rem;
+          color: var(--text-soft);
+          font-size: 0.82rem;
+          font-weight: 700;
+        }
+
+        .settings-label span,
+        .settings-count {
+          color: var(--muted);
+          font-weight: 500;
+        }
+
+        .settings-inline-link {
+          display: inline-flex;
+          margin-top: 0.55rem;
+          color: var(--accent);
+          font-size: 0.8rem;
+          font-weight: 800;
+          text-decoration: none;
+        }
+
+        .settings-textarea {
+          resize: none;
+          line-height: 1.55;
+        }
+
+        .settings-count {
+          margin: 0.35rem 0 0;
+          font-size: 0.75rem;
+          text-align: right;
+        }
+
+        .theme-segment {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 0.45rem;
+          padding: 0.35rem;
+          border: 1px solid var(--control-border);
+          border-radius: 16px;
+          background: var(--control-bg);
+        }
+
+        .theme-segment button {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.45rem;
+          min-height: 42px;
+          border: 1px solid transparent;
+          border-radius: 12px;
+          background: transparent;
+          color: var(--muted);
+          cursor: pointer;
+          font-weight: 750;
+          transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+        }
+
+        .theme-segment button.is-active {
+          border-color: var(--accent-soft);
+          background: var(--surface-row-hover);
+          color: var(--text);
+        }
+
+        .settings-signout {
+          width: 100%;
+          min-height: 46px;
+          border: 1px solid rgba(244, 63, 94, 0.28);
+          border-radius: 14px;
+          background: rgba(244, 63, 94, 0.08);
+          color: #e11d48;
+          cursor: pointer;
+          font-size: 0.94rem;
+          font-weight: 750;
+          transition: background 0.16s ease, border-color 0.16s ease;
+        }
+
+        .settings-signout:hover {
+          border-color: rgba(244, 63, 94, 0.42);
+          background: rgba(244, 63, 94, 0.13);
+        }
+      `}</style>
     </div>
   )
 }

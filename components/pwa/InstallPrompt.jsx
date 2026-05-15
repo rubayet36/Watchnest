@@ -132,7 +132,7 @@ export default function InstallPrompt() {
                 <ShareIcon /> Share
               </span>
               {' '}button, then{' '}
-              <span style={{ fontWeight:700, color:'#a78bfa' }}>"Add to Home Screen"</span>
+              <span style={{ fontWeight:700, color:'#a78bfa' }}>&quot;Add to Home Screen&quot;</span>
             </p>
           </div>
           <button onClick={dismiss} style={{

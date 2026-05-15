@@ -54,14 +54,10 @@ function ResultRow({ movie, searchMode, index, onAdd }) {
         href={`/media/${movie.media_type || 'movie'}/${movie.tmdb_id || movie.id}`}
         style={{ textDecoration: 'none', display: 'block' }}
       >
-        <div style={{
+        <div className="surface-row" style={{
           display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.875rem',
-          background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
-          borderRadius: 16, transition: 'border-color .15s, background .15s',
           paddingRight: searchMode === 'tmdb' ? '3.5rem' : '0.875rem',
         }}
-          onMouseEnter={e => { e.currentTarget.style.borderColor='rgba(139,92,246,0.3)'; e.currentTarget.style.background='rgba(139,92,246,0.06)' }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor='rgba(255,255,255,0.08)'; e.currentTarget.style.background='rgba(255,255,255,0.04)' }}
         >
           {/* Poster */}
           <div style={{ width: 56, height: 80, borderRadius: 10, overflow: 'hidden', flexShrink: 0, position: 'relative', background: '#1c1c2e' }}>
@@ -209,31 +205,26 @@ function SearchContent() {
   }
 
   return (
-    <div style={{ maxWidth: 680, margin: '0 auto', padding: '1.5rem 1rem' }}>
+    <div className="page-shell mobile-safe-bottom">
 
       {/* Title */}
-      <h1 style={{
-        fontSize: '1.5rem', fontWeight: 900, marginBottom: '1.25rem',
-        background: 'linear-gradient(135deg,#a78bfa,#f43f5e)',
-        WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text',
-      }}>Search</h1>
+      <header className="page-header">
+        <div>
+          <p className="page-kicker">Explore</p>
+          <h1 className="page-title gradient-text">Search</h1>
+          <p className="page-subtitle">Find what is already in your nest or add something new.</p>
+        </div>
+      </header>
 
       {/* Mode Toggle */}
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+      <div className="chip-row" style={{ marginBottom: '1rem' }}>
         {[
           { id: 'nest', label: 'In WatchNest' },
           { id: 'tmdb', label: 'All Movies (TMDB)' },
         ].map(({ id, label }) => {
           const active = searchMode === id
           return (
-            <button key={id} onClick={() => handleModeChange(id)} style={{
-              padding: '0.5rem 1rem', borderRadius: 12, fontSize: '0.875rem', fontWeight: 600,
-              cursor: 'pointer', fontFamily: 'inherit', border: 'none',
-              background: active ? 'linear-gradient(135deg,#7c3aed,#a855f7)' : 'rgba(255,255,255,0.05)',
-              color: active ? '#fff' : '#64748b',
-              outline: active ? 'none' : '1px solid rgba(255,255,255,0.08)',
-              transition: 'all .15s',
-            }}>{label}</button>
+            <button key={id} onClick={() => handleModeChange(id)} className={`chip ${active ? 'chip-active' : ''}`}>{label}</button>
           )
         })}
       </div>
@@ -246,15 +237,8 @@ function SearchContent() {
           value={input}
           onChange={e => handleInput(e.target.value)}
           placeholder={searchMode === 'nest' ? 'Search movies in your nest…' : 'Search any movie or show…'}
-          style={{
-            width: '100%', boxSizing: 'border-box',
-            background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-            borderRadius: 16, paddingLeft: 44, paddingRight: input ? 44 : 16, paddingTop: 14, paddingBottom: 14,
-            color: '#e2e8f0', fontFamily: 'inherit', fontSize: '1rem', outline: 'none',
-            transition: 'border-color .15s',
-          }}
-          onFocus={e => e.target.style.borderColor = 'rgba(139,92,246,0.6)'}
-          onBlur={e  => e.target.style.borderColor = 'rgba(255,255,255,0.1)'}
+          className="input"
+          style={{ boxSizing: 'border-box', paddingLeft: 44, paddingRight: input ? 44 : 16, fontSize: '1rem' }}
         />
         {input && !isLoading && (
           <button onClick={() => { setInput(''); clear(); updateUrl(searchMode, '') }} style={{

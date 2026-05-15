@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Bell, Heart, Share2, UserPlus, Star, MessageCircle, Check } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -9,15 +9,41 @@ import { authFetch } from '@/lib/auth-fetch'
 import { timeAgo } from '@/lib/utils'
 import Link from 'next/link'
 
+function getPlainMessage(n) {
+  const name = n.actor?.name || 'Someone'
+  switch(n.type) {
+    case 'reaction': return `${name} reacted to your post ${n.post?.title || ''}`.trim()
+    case 'share': return `${name} shared ${n.post?.title || 'a title'} with you`
+    case 'follow_request': return `${name} sent you a partner request`
+    case 'review': return `${name} reviewed your movie taste`
+    case 'comment': return `${name} commented on your post ${n.post?.title || ''}`.trim()
+    case 'reply': return `${name} replied to your comment ${n.post?.title || ''}`.trim()
+    default: return `${name} interacted with you`
+  }
+}
+
+function getNotificationLink(n) {
+  switch(n.type) {
+    case 'reaction':
+    case 'comment':
+    case 'reply': return `/media/${n.post?.media_type || 'movie'}/${n.post?.tmdb_id}`
+    case 'share': return `/watchlist`
+    case 'follow_request': return `/watchlist`
+    case 'review': return `/profile/${n.actor?.id}`
+    default: return '#'
+  }
+}
+
 export default function NotificationsDropdown() {
   const [isOpen, setIsOpen] = useState(false)
+  const [isVisible, setIsVisible] = useState(true)
   const ref = useRef(null)
   const queryClient = useQueryClient()
 
   const { data, isLoading } = useQuery({
     queryKey: ['notifications'],
     queryFn: () => authFetch('/api/notifications').then(r => r.json()),
-    refetchInterval: 15000,
+    refetchInterval: isVisible ? (isOpen ? 30000 : 60000) : false,
   })
 
   const markRead = useMutation({
@@ -25,7 +51,7 @@ export default function NotificationsDropdown() {
       method: 'PATCH',
       body: JSON.stringify(id ? { notification_id: id } : { mark_all_read: true })
     }),
-    onSuccess: () => queryClient.invalidateQueries(['notifications']),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
   })
 
   useEffect(() => {
@@ -36,8 +62,36 @@ export default function NotificationsDropdown() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const notifications = data?.notifications || []
+  useEffect(() => {
+    const syncVisibility = () => setIsVisible(!document.hidden)
+    syncVisibility()
+    document.addEventListener('visibilitychange', syncVisibility)
+    return () => document.removeEventListener('visibilitychange', syncVisibility)
+  }, [])
+
+  const notifications = useMemo(() => data?.notifications || [], [data?.notifications])
   const unreadCount = notifications.filter(n => !n.read).length
+
+  useEffect(() => {
+    if (!notifications.length || !('Notification' in window) || Notification.permission !== 'granted') return
+
+    const latestUnread = notifications.find((notification) => !notification.read)
+    if (!latestUnread) return
+
+    const storageKey = 'watchnest-last-device-notification'
+    if (window.localStorage.getItem(storageKey) === latestUnread.id) return
+    window.localStorage.setItem(storageKey, latestUnread.id)
+
+    navigator.serviceWorker?.ready
+      .then((registration) => registration.showNotification('WatchNest', {
+        body: getPlainMessage(latestUnread),
+        icon: '/android-chrome-192x192.png',
+        badge: '/favicon-32x32.png',
+        tag: latestUnread.id,
+        data: { url: getNotificationLink(latestUnread) },
+      }))
+      .catch(() => {})
+  }, [notifications])
 
   const getIcon = (type) => {
     switch(type) {
@@ -46,6 +100,7 @@ export default function NotificationsDropdown() {
       case 'follow_request': return <UserPlus size={14} color="#f59e0b" />
       case 'review': return <Star size={14} color="#fbbf24" />
       case 'comment': return <MessageCircle size={14} color="#10b981" />
+      case 'reply': return <MessageCircle size={14} color="#22d3ee" />
       default: return <Bell size={14} color="#8b5cf6" />
     }
   }
@@ -58,18 +113,8 @@ export default function NotificationsDropdown() {
       case 'follow_request': return <>{name} sent you a partner request</>
       case 'review': return <>{name} reviewed your movie taste</>
       case 'comment': return <>{name} commented on your post <b>{n.post?.title}</b></>
+      case 'reply': return <>{name} replied on <b>{n.post?.title}</b></>
       default: return <>{name} interacted with you</>
-    }
-  }
-
-  const getLink = (n) => {
-    switch(n.type) {
-      case 'reaction':
-      case 'comment': return `/media/${n.post?.media_type || 'movie'}/${n.post?.tmdb_id}`
-      case 'share': return `/watchlist`
-      case 'follow_request': return `/watchlist`
-      case 'review': return `/profile/${n.actor?.id}`
-      default: return '#'
     }
   }
 
@@ -132,7 +177,7 @@ export default function NotificationsDropdown() {
                   }}>
                     <Avatar user={n.actor} size={36} />
                     <div style={{ flex:1, minWidth:0 }}>
-                      <Link href={getLink(n)} onClick={() => setIsOpen(false)} style={{ textDecoration:'none', color:'#e2e8f0', fontSize:'0.8125rem', lineHeight:1.4, display:'block' }}>
+                      <Link href={getNotificationLink(n)} onClick={() => setIsOpen(false)} style={{ textDecoration:'none', color:'#e2e8f0', fontSize:'0.8125rem', lineHeight:1.4, display:'block' }}>
                         {getMessage(n)}
                       </Link>
                       <div style={{ display:'flex', alignItems:'center', gap:6, marginTop:4, fontSize:'0.7rem', color:'#64748b' }}>

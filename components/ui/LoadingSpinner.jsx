@@ -46,7 +46,7 @@ export function CardSkeleton() {
   return (
     <>
       <style>{spinKeyframes}</style>
-      <div style={{ background: 'rgba(28,28,46,0.6)', border: '1px solid rgba(139,92,246,0.1)', borderRadius: 20, overflow: 'hidden' }}>
+      <div className="card" style={{ overflow: 'hidden' }}>
         <div style={{ padding: '1rem', display: 'flex', gap: '0.75rem' }}>
           <div style={{ ...sh, width: 36, height: 36, borderRadius: '50%', flexShrink: 0 }} />
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>

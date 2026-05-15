@@ -1,7 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { createPortal } from 'react-dom'
+import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Send } from 'lucide-react'
 import { useQuery, useMutation } from '@tanstack/react-query'
@@ -56,12 +55,7 @@ export default function ShareModal({ post, onClose }) {
     partners = users.filter(u => sentMap[u.id]?.status === 'accepted' || recMap[u.id]?.status === 'accepted')
   }
 
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => setMounted(true), [])
-
-  if (!mounted) return null
-
-  return createPortal(
+  return (
     <motion.div style={S.overlay} initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}>
       <div onClick={onClose} style={S.backdrop} />
       <motion.div style={S.modal}
@@ -72,7 +66,7 @@ export default function ShareModal({ post, onClose }) {
         <div style={S.header}>
           <div>
             <h2 style={{ margin:0, fontSize:'1.125rem', fontWeight:800, color:'#e2e8f0' }}>Share Movie</h2>
-            <p style={{ margin:'2px 0 0', fontSize:'0.8125rem', color:'#64748b' }}>Send to a partner's watchlist</p>
+            <p style={{ margin:'2px 0 0', fontSize:'0.8125rem', color:'#64748b' }}>Send to a partner&apos;s watchlist</p>
           </div>
           <button onClick={onClose} style={S.closeBtn}><X size={18} /></button>
         </div>
@@ -114,7 +108,6 @@ export default function ShareModal({ post, onClose }) {
           )}
         </div>
       </motion.div>
-    </motion.div>,
-    document.body
+    </motion.div>
   )
 }

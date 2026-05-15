@@ -1,36 +1,34 @@
 'use client'
 
 import { useState } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Send, Trash2 } from 'lucide-react'
+import toast from 'react-hot-toast'
 import { authFetch } from '@/lib/auth-fetch'
 import Avatar from '@/components/ui/Avatar'
-import { timeAgo } from '@/lib/utils'
-import { Trash2, Send } from 'lucide-react'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
-import toast from 'react-hot-toast'
 import { useAuth } from '@/context/AuthContext'
+import { timeAgo } from '@/lib/utils'
 
 export default function CommentSection({ post }) {
   const { user } = useAuth()
   const [content, setContent] = useState('')
-  const [replyingTo, setReplyingTo] = useState(null) // { commentId, name }
-  const [replyTexts, setReplyTexts] = useState({})    // { commentId: text }
+  const [replyingTo, setReplyingTo] = useState(null)
+  const [replyTexts, setReplyTexts] = useState({})
   const queryClient = useQueryClient()
   const queryKey = ['comments', post.id]
 
-  // ── Fetch comments ────────────────────────────────────────
   const { data: comments = [], isLoading } = useQuery({
     queryKey,
     queryFn: async () => {
       const res = await authFetch(`/api/comments?post_id=${post.id}`)
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed')
-      return (data.comments ?? []).map(c => ({ ...c, replies: c.replies || [] }))
+      return (data.comments ?? []).map((comment) => ({ ...comment, replies: comment.replies || [] }))
     },
     retry: false,
   })
 
-  // ── Post top-level comment ────────────────────────────────
   const addComment = useMutation({
     mutationFn: async (text) => {
       const res = await authFetch('/api/comments', {
@@ -40,11 +38,13 @@ export default function CommentSection({ post }) {
       if (!res.ok) throw new Error(await res.text())
       return res.json()
     },
-    onSuccess: () => { setContent(''); queryClient.invalidateQueries({ queryKey }) },
+    onSuccess: () => {
+      setContent('')
+      queryClient.invalidateQueries({ queryKey })
+    },
     onError: () => toast.error('Failed to post comment'),
   })
 
-  // ── Post reply ────────────────────────────────────────────
   const addReply = useMutation({
     mutationFn: async ({ text, parentId }) => {
       const res = await authFetch('/api/comments', {
@@ -55,14 +55,13 @@ export default function CommentSection({ post }) {
       return res.json()
     },
     onSuccess: (_, { parentId }) => {
-      setReplyTexts(t => ({ ...t, [parentId]: '' }))
+      setReplyTexts((current) => ({ ...current, [parentId]: '' }))
       setReplyingTo(null)
       queryClient.invalidateQueries({ queryKey })
     },
     onError: () => toast.error('Failed to post reply'),
   })
 
-  // ── Delete any comment or reply ───────────────────────────
   const deleteComment = useMutation({
     mutationFn: async (id) => {
       const res = await authFetch(`/api/comments?id=${id}`, { method: 'DELETE' })
@@ -85,115 +84,68 @@ export default function CommentSection({ post }) {
     addReply.mutate({ text, parentId: commentId })
   }
 
-  // ── Styles ────────────────────────────────────────────────
-  const bubble = {
-    flex: 1, minWidth: 0,
-    background: 'rgba(255,255,255,0.04)',
-    padding: '0.5rem 0.75rem',
-    borderRadius: '0 12px 12px 12px',
-  }
-  const replyBubble = {
-    flex: 1, minWidth: 0,
-    background: 'rgba(139,92,246,0.06)',
-    border: '1px solid rgba(139,92,246,0.12)',
-    padding: '0.4rem 0.625rem',
-    borderRadius: '0 10px 10px 10px',
-  }
-  const inputStyle = {
-    flex: 1, background: 'rgba(255,255,255,0.05)',
-    border: '1px solid rgba(255,255,255,0.1)',
-    borderRadius: 20, padding: '0.5rem 1rem',
-    color: '#e2e8f0', fontSize: '0.8125rem',
-    outline: 'none', fontFamily: 'inherit',
-  }
-  const sendBtn = (active) => ({
-    display: 'flex', alignItems: 'center', justifyContent: 'center',
-    width: 34, height: 34, borderRadius: '50%', border: 'none', flexShrink: 0,
-    background: active ? 'linear-gradient(135deg,#7c3aed,#db2777)' : 'rgba(255,255,255,0.08)',
-    color: 'white', cursor: active ? 'pointer' : 'default', transition: 'background .2s',
-  })
-  const replyBtn = (active) => ({
-    background: active ? 'rgba(139,92,246,0.2)' : 'rgba(139,92,246,0.1)',
-    border: '1px solid rgba(139,92,246,0.3)',
-    borderRadius: 99, padding: '3px 12px',
-    fontSize: '0.75rem', fontWeight: 600,
-    color: active ? '#c4b5fd' : '#a78bfa',
-    cursor: 'pointer', fontFamily: 'inherit',
-  })
-
   return (
-    <div style={{ padding: '0.75rem 1rem', background: 'rgba(0,0,0,0.2)', borderTop: '1px solid rgba(255,255,255,0.06)' }}>
-
-      {/* ── Comments list ───────────────────────────────── */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '0.875rem', maxHeight: 420, overflowY: 'auto' }}>
-
+    <section className="feed-comments">
+      <div className="feed-comments-list">
         {isLoading ? (
-          <div style={{ display:'flex', justifyContent:'center', padding:'1rem' }}>
+          <div className="feed-comments-loading">
             <LoadingSpinner size="sm" />
           </div>
         ) : comments.length === 0 ? (
-          <p style={{ textAlign:'center', fontSize:'0.8125rem', color:'#64748b', margin:0, padding:'0.5rem' }}>
-            No comments yet. Be the first!
-          </p>
-        ) : comments.map(c => (
-          <div key={c.id}>
-
-            {/* ── Top-level comment ── */}
-            <div style={{ display:'flex', gap:'0.5rem', alignItems:'flex-start' }}>
-              <Avatar user={c.profiles} size={28} />
-              <div style={bubble}>
-                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                  <span style={{ fontSize:'0.75rem', fontWeight:700, color:'#e2e8f0' }}>{c.profiles?.name}</span>
-                  <span style={{ fontSize:'0.65rem', color:'#64748b' }}>{timeAgo(c.created_at)}</span>
+          <p className="feed-comments-empty">No comments yet. Be the first.</p>
+        ) : comments.map((comment) => (
+          <div key={comment.id} className="feed-comment-group">
+            <div className="feed-comment">
+              <Avatar user={comment.profiles} size={28} />
+              <div className="feed-comment-bubble">
+                <div className="feed-comment-top">
+                  <span className="feed-user-name">{comment.profiles?.name}</span>
+                  <span>{timeAgo(comment.created_at)}</span>
                 </div>
-                <p style={{ margin:'4px 0 0', fontSize:'0.8125rem', color:'#cbd5e1', wordBreak:'break-word', whiteSpace:'pre-wrap' }}>
-                  {c.content}
-                </p>
+                <p className="feed-comment-text">{comment.content}</p>
               </div>
-              {user?.id === c.user_id && (
+              {user?.id === comment.user_id && (
                 <button
-                  onClick={() => { if (window.confirm('Delete?')) deleteComment.mutate(c.id) }}
-                  style={{ background:'none', border:'none', color:'#f43f5e', cursor:'pointer', padding:'0.25rem', opacity:0.5 }}
-                  title="Delete"
+                  type="button"
+                  onClick={() => { if (window.confirm('Delete?')) deleteComment.mutate(comment.id) }}
+                  className="feed-delete-button"
+                  aria-label="Delete comment"
                 >
                   <Trash2 size={13} />
                 </button>
               )}
             </div>
 
-            {/* ── Reply button ── */}
-            <div style={{ paddingLeft: '2.25rem', marginTop: '0.375rem' }}>
+            <div className="feed-reply-controls">
               <button
-                style={replyBtn(replyingTo?.commentId === c.id)}
+                type="button"
+                className={`feed-reply-button ${replyingTo?.commentId === comment.id ? 'is-active' : ''}`}
                 onClick={() => setReplyingTo(
-                  replyingTo?.commentId === c.id ? null : { commentId: c.id, name: c.profiles?.name }
+                  replyingTo?.commentId === comment.id ? null : { commentId: comment.id, name: comment.profiles?.name }
                 )}
               >
-                ↩ {replyingTo?.commentId === c.id ? 'Cancel' : `Reply${c.replies?.length > 0 ? ` (${c.replies.length})` : ''}`}
+                {replyingTo?.commentId === comment.id ? 'Cancel' : `Reply${comment.replies?.length > 0 ? ` (${comment.replies.length})` : ''}`}
               </button>
             </div>
 
-            {/* ── Existing replies ── */}
-            {c.replies?.length > 0 && (
-              <div style={{ paddingLeft:'2.25rem', marginTop:'0.5rem', display:'flex', flexDirection:'column', gap:'0.5rem' }}>
-                {c.replies.map(r => (
-                  <div key={r.id} style={{ display:'flex', gap:'0.5rem', alignItems:'flex-start' }}>
-                    <span style={{ color:'#475569', fontSize:12, marginTop:6 }}>↳</span>
-                    <Avatar user={r.profiles} size={22} />
-                    <div style={replyBubble}>
-                      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                        <span style={{ fontSize:'0.7rem', fontWeight:700, color:'#c4b5fd' }}>{r.profiles?.name}</span>
-                        <span style={{ fontSize:'0.6rem', color:'#64748b' }}>{timeAgo(r.created_at)}</span>
+            {comment.replies?.length > 0 && (
+              <div className="feed-replies">
+                {comment.replies.map((reply) => (
+                  <div key={reply.id} className="feed-comment feed-reply">
+                    <Avatar user={reply.profiles} size={22} />
+                    <div className="feed-comment-bubble feed-reply-bubble">
+                      <div className="feed-comment-top">
+                        <span className="feed-user-name">{reply.profiles?.name}</span>
+                        <span>{timeAgo(reply.created_at)}</span>
                       </div>
-                      <p style={{ margin:'2px 0 0', fontSize:'0.78rem', color:'#cbd5e1', wordBreak:'break-word', whiteSpace:'pre-wrap' }}>
-                        {r.content}
-                      </p>
+                      <p className="feed-comment-text">{reply.content}</p>
                     </div>
-                    {user?.id === r.user_id && (
+                    {user?.id === reply.user_id && (
                       <button
-                        onClick={() => { if (window.confirm('Delete?')) deleteComment.mutate(r.id) }}
-                        style={{ background:'none', border:'none', color:'#f43f5e', cursor:'pointer', padding:'0.2rem', opacity:0.5 }}
-                        title="Delete reply"
+                        type="button"
+                        onClick={() => { if (window.confirm('Delete?')) deleteComment.mutate(reply.id) }}
+                        className="feed-delete-button"
+                        aria-label="Delete reply"
                       >
                         <Trash2 size={12} />
                       </button>
@@ -203,44 +155,37 @@ export default function CommentSection({ post }) {
               </div>
             )}
 
-            {/* ── Reply input ── */}
-            {replyingTo?.commentId === c.id && (
-              <form
-                onSubmit={(e) => handleReplySubmit(e, c.id)}
-                style={{ display:'flex', gap:'0.5rem', alignItems:'center', paddingLeft:'2.25rem', marginTop:'0.5rem' }}
-              >
+            {replyingTo?.commentId === comment.id && (
+              <form onSubmit={(e) => handleReplySubmit(e, comment.id)} className="feed-comment-form feed-reply-form">
                 <input
                   type="text"
                   autoFocus
-                  value={replyTexts[c.id] || ''}
-                  onChange={e => setReplyTexts(t => ({ ...t, [c.id]: e.target.value }))}
-                  placeholder={`Reply to ${replyingTo.name}…`}
-                  style={inputStyle}
+                  value={replyTexts[comment.id] || ''}
+                  onChange={(e) => setReplyTexts((current) => ({ ...current, [comment.id]: e.target.value }))}
+                  placeholder={`Reply to ${replyingTo.name}...`}
+                  className="feed-comment-input"
                 />
-                <button type="submit" style={sendBtn(!!(replyTexts[c.id] || '').trim())} disabled={addReply.isPending}>
+                <button type="submit" className="feed-comment-send" disabled={!(replyTexts[comment.id] || '').trim() || addReply.isPending}>
                   {addReply.isPending ? <LoadingSpinner size="sm" /> : <Send size={13} />}
                 </button>
               </form>
             )}
-
           </div>
         ))}
       </div>
 
-      {/* ── New top-level comment ─────────────────────────── */}
-      <form onSubmit={handleSubmit} style={{ display:'flex', gap:'0.5rem', alignItems:'center' }}>
+      <form onSubmit={handleSubmit} className="feed-comment-form">
         <input
           type="text"
           value={content}
-          onChange={e => setContent(e.target.value)}
-          placeholder="Add a comment…"
-          style={inputStyle}
+          onChange={(e) => setContent(e.target.value)}
+          placeholder="Add a comment..."
+          className="feed-comment-input"
         />
-        <button type="submit" style={sendBtn(!!content.trim())} disabled={!content.trim() || addComment.isPending}>
+        <button type="submit" className="feed-comment-send" disabled={!content.trim() || addComment.isPending}>
           {addComment.isPending ? <LoadingSpinner size="sm" /> : <Send size={14} />}
         </button>
       </form>
-
-    </div>
+    </section>
   )
 }

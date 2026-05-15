@@ -2,11 +2,11 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Bookmark, BookmarkCheck, Star, MessageCircle, MessageSquareText, ChevronDown, Share2, Edit2 } from 'lucide-react'
+import { AnimatePresence, motion } from 'framer-motion'
+import { Bookmark, BookmarkCheck, ChevronDown, Edit2, MessageCircle, MessageSquareText, Share2, ShieldAlert, Star, Users } from 'lucide-react'
 import { getPosterUrl } from '@/lib/tmdb'
 import PosterImage from '@/components/ui/PosterImage'
-import { getCategoryById, timeAgo, REACTIONS } from '@/lib/utils'
+import { getCategoryById, REACTIONS, timeAgo } from '@/lib/utils'
 import { useReactions, useWatchlist } from '@/hooks/useReactions'
 import { useAuth } from '@/context/AuthContext'
 import Avatar from '@/components/ui/Avatar'
@@ -14,21 +14,20 @@ import ShareModal from '@/components/feed/ShareModal'
 import EditPostModal from '@/components/movie/EditPostModal'
 import CommentSection from '@/components/feed/CommentSection'
 
-// ─── Category badge color map (inline-safe) ──────────────────
 const CAT_COLORS = {
-  'all-time-fav':  '#d97706',
-  'made-me-cry':   '#3b82f6',
-  'best-comedy':   '#22c55e',
-  'mind-blowing':  '#8b5cf6',
-  'watch-family':  '#f97316',
+  'all-time-fav': '#d97706',
+  'made-me-cry': '#3b82f6',
+  'best-comedy': '#22c55e',
+  'mind-blowing': '#8b5cf6',
+  'watch-family': '#f97316',
   'best-thriller': '#64748b',
-  'best-horror':   '#dc2626',
-  'must-watch':    '#ef4444',
-  'hidden-gem':    '#06b6d4',
-  'best-scifi':    '#0ea5e9',
-  'date-movie':    '#ec4899',
-  'underrated':    '#84cc16',
-  'rewatchable':   '#a855f7',
+  'best-horror': '#dc2626',
+  'must-watch': '#ef4444',
+  'hidden-gem': '#06b6d4',
+  'best-scifi': '#0ea5e9',
+  'date-movie': '#ec4899',
+  'underrated': '#84cc16',
+  'rewatchable': '#a855f7',
 }
 
 function ReactionBar({ post }) {
@@ -36,66 +35,56 @@ function ReactionBar({ post }) {
   const { toggleReaction } = useReactions(post.id)
   const [showPicker, setShowPicker] = useState(false)
 
-  const reactionCounts = {}
-  const userReaction = post.reactions?.find(r => r.user_id === user?.id)?.reaction_type
-  for (const r of (post.reactions || [])) {
-    reactionCounts[r.reaction_type] = (reactionCounts[r.reaction_type] || 0) + 1
+  const reactionCounts = { ...(post.reactionCounts || {}) }
+  const userReaction = post.reactions?.find((r) => r.user_id === user?.id)?.reaction_type
+  if (!post.reactionCounts) {
+    for (const r of (post.reactions || [])) {
+      reactionCounts[r.reaction_type] = (reactionCounts[r.reaction_type] || 0) + 1
+    }
   }
-  const totalReactions = (post.reactions || []).length
+
+  const activeReaction = REACTIONS.find((r) => r.key === userReaction)
+  const totalReactions = Object.values(reactionCounts).reduce((sum, count) => sum + Number(count || 0), 0)
+  const reactionSummary = Object.entries(reactionCounts).slice(0, 3)
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', position: 'relative' }}>
-      <div style={{ position: 'relative' }}>
+    <div className="feed-reaction-wrap">
+      <div className="feed-reaction-trigger">
         <button
+          type="button"
+          aria-label="React to recommendation"
           onMouseEnter={() => setShowPicker(true)}
           onMouseLeave={() => setShowPicker(false)}
           onClick={() => toggleReaction(userReaction || 'love')}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            padding: '0.375rem 0.75rem', borderRadius: 99, fontSize: '0.8125rem', fontWeight: 600,
-            border: userReaction ? '1px solid rgba(139,92,246,0.4)' : '1px solid rgba(255,255,255,0.1)',
-            background: userReaction ? 'rgba(139,92,246,0.15)' : 'rgba(255,255,255,0.05)',
-            color: userReaction ? '#c4b5fd' : '#64748b',
-            cursor: 'pointer', fontFamily: 'inherit', transition: 'all .15s',
-          }}
+          className={`feed-action-pill ${userReaction ? 'is-active' : ''}`}
         >
-          <span>{userReaction ? REACTIONS.find(r => r.key === userReaction)?.emoji || '❤️' : '❤️'}</span>
+          <span className="feed-action-emoji">{activeReaction?.emoji || REACTIONS[0]?.emoji}</span>
           <span>{totalReactions > 0 ? totalReactions : 'React'}</span>
         </button>
 
-        {/* Reaction Picker */}
         <AnimatePresence>
           {showPicker && (
             <motion.div
-              initial={{ opacity: 0, y: 8, scale: 0.9 }}
+              initial={{ opacity: 0, y: 8, scale: 0.96 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 8, scale: 0.9 }}
+              exit={{ opacity: 0, y: 8, scale: 0.96 }}
               transition={{ duration: 0.15 }}
               onMouseEnter={() => setShowPicker(true)}
               onMouseLeave={() => setShowPicker(false)}
-              style={{
-                position: 'absolute', bottom: '100%', left: 0, marginBottom: 8,
-                background: 'rgba(18,18,32,0.98)', backdropFilter: 'blur(20px)',
-                border: '1px solid rgba(139,92,246,0.2)', borderRadius: 16,
-                padding: '0.375rem', display: 'flex', gap: 4, zIndex: 30,
-                boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-              }}
+              className="feed-reaction-picker"
             >
-              {REACTIONS.map(r => (
-                <button key={r.key}
-                  onClick={() => { toggleReaction(r.key); setShowPicker(false) }}
-                  title={r.label}
-                  style={{
-                    fontSize: '1.25rem', padding: '0.375rem', borderRadius: 10,
-                    border: 'none', cursor: 'pointer',
-                    background: userReaction === r.key ? 'rgba(139,92,246,0.2)' : 'transparent',
-                    transform: userReaction === r.key ? 'scale(1.15)' : 'scale(1)',
-                    transition: 'all .15s',
+              {REACTIONS.map((reaction) => (
+                <button
+                  key={reaction.key}
+                  type="button"
+                  onClick={() => {
+                    toggleReaction(reaction.key)
+                    setShowPicker(false)
                   }}
-                  onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.3)'}
-                  onMouseLeave={e => e.currentTarget.style.transform = userReaction === r.key ? 'scale(1.15)' : 'scale(1)'}
+                  title={reaction.label}
+                  className={`feed-reaction-option ${userReaction === reaction.key ? 'is-selected' : ''}`}
                 >
-                  {r.emoji}
+                  {reaction.emoji}
                 </button>
               ))}
             </motion.div>
@@ -103,13 +92,12 @@ function ReactionBar({ post }) {
         </AnimatePresence>
       </div>
 
-      {/* Reaction summary */}
-      {Object.keys(reactionCounts).length > 0 && (
-        <div style={{ display: 'flex', gap: 4 }}>
-          {Object.entries(reactionCounts).slice(0, 3).map(([type, count]) => {
-            const r = REACTIONS.find(x => x.key === type)
-            return r ? (
-              <span key={type} style={{ fontSize: '0.875rem' }} title={`${count} ${r.label}`}>{r.emoji}</span>
+      {reactionSummary.length > 0 && (
+        <div className="feed-reaction-summary" aria-label="Reaction summary">
+          {reactionSummary.map(([type, count]) => {
+            const reaction = REACTIONS.find((r) => r.key === type)
+            return reaction ? (
+              <span key={type} title={`${count} ${reaction.label}`}>{reaction.emoji}</span>
             ) : null
           })}
         </div>
@@ -118,17 +106,73 @@ function ReactionBar({ post }) {
   )
 }
 
+function hasReviewMeta({ rating, moodTags, whyWatch }) {
+  const numericRating = Number(rating)
+  const hasRating = Number.isFinite(numericRating) && numericRating > 0
+  const tags = Array.isArray(moodTags) ? moodTags.filter(Boolean) : []
+
+  return hasRating || tags.length > 0 || Boolean(whyWatch)
+}
+
+function ReviewMeta({ rating, moodTags, whyWatch, ratingLabel = 'Personal rating' }) {
+  const numericRating = Number(rating)
+  const hasRating = Number.isFinite(numericRating) && numericRating > 0
+  const tags = Array.isArray(moodTags) ? moodTags.filter(Boolean) : []
+
+  if (!hasRating && tags.length === 0 && !whyWatch) return null
+
+  return (
+    <div className="feed-review-meta">
+      {hasRating && (
+        <span className="feed-review-rating">
+          <Star size={12} />
+          {ratingLabel} {numericRating.toFixed(1)}/10
+        </span>
+      )}
+      {tags.map((tag) => (
+        <span key={tag} className="feed-mood-pill">{tag}</span>
+      ))}
+      {whyWatch && <p className="feed-why-watch"><strong>Why watch:</strong> {whyWatch}</p>}
+    </div>
+  )
+}
+
+function SpoilerNote({ children, hasSpoilers }) {
+  const [revealed, setRevealed] = useState(!hasSpoilers)
+
+  if (!hasSpoilers || revealed) return children
+
+  return (
+    <div className="feed-spoiler-guard">
+      <ShieldAlert size={15} />
+      <span>Spoiler-safe note hidden</span>
+      <button type="button" onClick={() => setRevealed(true)}>Reveal</button>
+    </div>
+  )
+}
+
 export default function MovieCard({ post, currentUserId, priority = false }) {
   const { toggleSave, isSaving } = useWatchlist()
-  const isSaved = post.saves?.some(s => s.user_id === currentUserId)
+  const isSaved = post.saves?.some((s) => s.user_id === currentUserId)
   const category = getCategoryById(post.category)
   const catColor = CAT_COLORS[post.category] || '#8b5cf6'
   const [showAllNotes, setShowAllNotes] = useState(false)
   const [showShare, setShowShare] = useState(false)
   const [showEdit, setShowEdit] = useState(false)
   const [showComments, setShowComments] = useState(false)
-  const poster = getPosterUrl(post.poster_path)
+  const poster = getPosterUrl(post.poster_path, 'w342')
   const postedBy = post.profiles
+  const profileHref = postedBy?.id || post.user_id ? `/profile/${postedBy?.id || post.user_id}` : '/'
+  const alsoRecommendedBy = post.recommendedBy || []
+  const rating = Number(post.tmdb_rating)
+  const hasRating = Number.isFinite(rating) && rating > 0
+  const visibleNotes = showAllNotes ? post.allNotes : post.allNotes?.slice(0, 1)
+  const primaryReviewMeta = {
+    rating: post.user_rating,
+    moodTags: post.mood_tags,
+    whyWatch: post.why_watch,
+  }
+  const showPrimaryReviewMeta = hasReviewMeta(primaryReviewMeta)
 
   const isAnime = post.genres?.includes('Animation') && post.media_type === 'tv'
   const mediaLabel = isAnime ? 'ANIME' : (post.media_type === 'tv' ? 'TV SERIES' : 'MOVIE')
@@ -136,183 +180,156 @@ export default function MovieCard({ post, currentUserId, priority = false }) {
 
   return (
     <motion.article
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 18 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35 }}
-      style={{
-        background: 'rgba(28,28,46,0.6)', backdropFilter: 'blur(20px)',
-        border: '1px solid rgba(139,92,246,0.12)', borderRadius: 20,
-        overflow: 'hidden', transition: 'border-color .2s',
-      }}
-      onMouseEnter={e => e.currentTarget.style.borderColor = 'rgba(139,92,246,0.3)'}
-      onMouseLeave={e => e.currentTarget.style.borderColor = 'rgba(139,92,246,0.12)'}
+      transition={{ duration: 0.32 }}
+      className="movie-card feed-card"
+      style={{ '--feed-accent': catColor, '--media-color': mediaColor }}
     >
-      {/* Header — who posted */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '1rem 1rem 0.75rem' }}>
-        <Link href={`/profile/${postedBy?.id}`} style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none' }}>
-          <Avatar user={postedBy} size={34} />
-          <div>
-            <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 700, color: '#e2e8f0' }}>
-              {postedBy?.name || 'A friend'}
-            </p>
-            <p style={{ margin: 0, fontSize: '0.75rem', color: '#475569' }}>
-              {post.created_at ? timeAgo(post.created_at) : ''}
-            </p>
-          </div>
+      <div className="feed-card-accent" />
+
+      <header className="feed-card-header">
+        <Link href={profileHref} className="feed-author">
+          <Avatar user={postedBy} size={38} />
+          <span className="feed-author-copy">
+            <span className="feed-user-name feed-author-name">{postedBy?.name || 'A friend'}</span>
+            <span className="feed-time">{post.created_at ? timeAgo(post.created_at) : ''}</span>
+          </span>
         </Link>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
+
+        <div className="feed-card-actions">
           {currentUserId === post.user_id && (
-            <button
-              onClick={() => setShowEdit(true)}
-              title="Edit post"
-              style={{
-                background: 'none', border: 'none', cursor: 'pointer',
-                color: '#475569', padding: '0.375rem',
-                borderRadius: 10, transition: 'color .15s',
-              }}
-              onMouseEnter={e => e.currentTarget.style.color = '#3b82f6'}
-              onMouseLeave={e => e.currentTarget.style.color = '#475569'}
-            >
-              <Edit2 size={18} />
+            <button type="button" onClick={() => setShowEdit(true)} className="feed-icon-button" aria-label="Edit post">
+              <Edit2 size={17} />
             </button>
           )}
-          <button
-            onClick={() => setShowShare(true)}
-            title="Share with a partner"
-            style={{
-              background: 'none', border: 'none', cursor: 'pointer',
-              color: '#475569', padding: '0.375rem',
-              borderRadius: 10, transition: 'color .15s',
-            }}
-            onMouseEnter={e => e.currentTarget.style.color = '#8b5cf6'}
-            onMouseLeave={e => e.currentTarget.style.color = '#475569'}
-          >
-            <Share2 size={18} />
+          <button type="button" onClick={() => setShowShare(true)} className="feed-icon-button" aria-label="Share with a partner">
+            <Share2 size={17} />
           </button>
           <button
+            type="button"
             onClick={() => toggleSave(post.id)}
             disabled={isSaving}
-            title={isSaved ? 'Remove from Watchlist' : 'Add to Watchlist'}
-            style={{
-              background: 'none', border: 'none', cursor: isSaving ? 'wait' : 'pointer',
-              color: isSaved ? '#f59e0b' : '#475569', padding: '0.375rem',
-              borderRadius: 10, transition: 'color .15s', opacity: isSaving ? 0.5 : 1,
-            }}
-            onMouseEnter={e => { if (!isSaving) e.currentTarget.style.color = isSaved ? '#fbbf24' : '#94a3b8' }}
-            onMouseLeave={e => e.currentTarget.style.color = isSaved ? '#f59e0b' : '#475569'}
+            className={`feed-icon-button ${isSaved ? 'is-saved' : ''}`}
+            aria-label={isSaved ? 'Remove from watchlist' : 'Add to watchlist'}
           >
-            {isSaved ? <BookmarkCheck size={20} /> : <Bookmark size={20} />}
+            {isSaved ? <BookmarkCheck size={18} /> : <Bookmark size={18} />}
           </button>
         </div>
-      </div>
+      </header>
 
-      {/* Body */}
-      <div style={{ display: 'flex', gap: '1rem', padding: '0 1rem 1rem' }}>
-        {/* Poster */}
-        <div style={{ flexShrink: 0 }}>
-          <Link href={`/media/${post.media_type || 'movie'}/${post.tmdb_id}`}>
-            <div style={{ position: 'relative', width: 88, height: 128, borderRadius: 12, overflow: 'hidden', background: '#1c1c2e', boxShadow: '0 4px 16px rgba(0,0,0,0.4)' }}>
-              <PosterImage src={poster} alt={post.title} fill sizes="88px" priority={priority} />
-              <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(to top,rgba(0,0,0,0.8),transparent)', padding: '0.375rem', display: 'flex', alignItems: 'center', gap: 4 }}>
-                <Star size={10} style={{ color: '#f59e0b', fill: '#f59e0b' }} />
-                <span style={{ fontSize: '0.6875rem', fontWeight: 700, color: '#fbbf24' }}>{post.tmdb_rating?.toFixed(1)}</span>
-              </div>
-            </div>
-          </Link>
-        </div>
+      <div className="feed-card-body">
+        <Link href={`/media/${post.media_type || 'movie'}/${post.tmdb_id}`} className="feed-poster-link" aria-label={`Open ${post.title}`}>
+          <span className="feed-poster-shell">
+            <PosterImage src={poster} alt={post.title} fill sizes="(max-width: 460px) 88px, 112px" priority={priority} />
+            {hasRating && (
+              <span className="feed-rating-badge">
+                <Star size={11} />
+                <span>{rating.toFixed(1)}</span>
+              </span>
+            )}
+          </span>
+        </Link>
 
-        {/* Info */}
-        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          {/* Badges */}
-          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+        <div className="feed-card-content">
+          <div className="feed-badges">
             {category && (
-              <span style={{
-                display: 'inline-block', padding: '3px 10px', borderRadius: 99,
-                fontSize: '0.7rem', fontWeight: 700,
-                background: catColor + '33', border: `1px solid ${catColor}55`, color: catColor,
-              }}>
+              <span className="feed-badge" style={{ '--badge-color': catColor }}>
                 {category.label}
               </span>
             )}
-            <span style={{
-              display: 'inline-block', padding: '3px 10px', borderRadius: 99,
-              fontSize: '0.7rem', fontWeight: 700,
-              background: mediaColor + '22', border: `1px solid ${mediaColor}44`, color: mediaColor,
-            }}>
+            <span className="feed-badge" style={{ '--badge-color': mediaColor }}>
               {mediaLabel}
             </span>
           </div>
 
-          {/* Title */}
-          <Link href={`/media/${post.media_type || 'movie'}/${post.tmdb_id}`} style={{ textDecoration: 'none' }}>
-            <h3 style={{ margin: 0, fontSize: '0.9375rem', fontWeight: 800, color: '#e2e8f0', lineHeight: 1.3, transition: 'color .15s' }}
-              onMouseEnter={e => e.currentTarget.style.color = '#c4b5fd'}
-              onMouseLeave={e => e.currentTarget.style.color = '#e2e8f0'}
-            >
-              {post.title}
-            </h3>
+          <Link href={`/media/${post.media_type || 'movie'}/${post.tmdb_id}`} className="feed-title-link">
+            <h3 className="feed-title">{post.title}</h3>
           </Link>
 
-          {/* Year + genres */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-            {post.release_year && <span style={{ fontSize: '0.75rem', color: '#475569' }}>{post.release_year}</span>}
-            {post.genres?.slice(0, 3).map((g, gi) => (
-              <span key={`${g}-${gi}`} style={{ fontSize: '0.6875rem', padding: '2px 8px', borderRadius: 99, background: 'rgba(255,255,255,0.06)', color: '#64748b' }}>{g}</span>
+          <div className="feed-meta-line">
+            {post.release_year && <span>{post.release_year}</span>}
+            {post.genres?.slice(0, 3).map((genre, index) => (
+              <span key={`${genre}-${index}`} className="feed-genre-pill">{genre}</span>
             ))}
           </div>
 
-          {/* Notes */}
+          {showPrimaryReviewMeta && (
+            <ReviewMeta {...primaryReviewMeta} />
+          )}
+
+          {alsoRecommendedBy.length > 0 && (
+            <div className="feed-recommend-row">
+              <div className="feed-recommend-avatars">
+                {alsoRecommendedBy.slice(0, 3).map((u) => (
+                  <Avatar key={u.id} user={u} size={22} />
+                ))}
+              </div>
+              <div className="feed-recommend-copy">
+                <Users size={13} />
+                <span>
+                  Also recommended by{' '}
+                  <strong className="feed-user-name">
+                    {alsoRecommendedBy[0]?.name || alsoRecommendedBy[0]?.username || 'someone'}
+                  </strong>
+                  {alsoRecommendedBy.length > 1 ? ` and ${alsoRecommendedBy.length - 1} other${alsoRecommendedBy.length > 2 ? 's' : ''}` : ''}
+                </span>
+              </div>
+            </div>
+          )}
+
           {post.allNotes && post.allNotes.length > 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              {(showAllNotes ? post.allNotes : post.allNotes.slice(0, 1)).map((n, i) => (
-                <div key={i} style={{ background: 'rgba(255,255,255,0.05)', borderRadius: 10, padding: '0.5rem 0.75rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                    <Avatar user={n.user} size={16} />
-                    <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#a78bfa' }}>{n.user?.name || 'Someone'}</span>
+            <div className="feed-notes">
+              {visibleNotes.map((note, index) => (
+                <div key={`${note.postId || index}-${note.postedAt || index}`} className="feed-note">
+                  <div className="feed-note-author">
+                    <Avatar user={note.user} size={17} />
+                    <span className="feed-user-name">{note.user?.name || 'Someone'}</span>
                   </div>
-                  <p style={{ margin: 0, fontSize: '0.8125rem', color: '#94a3b8', fontStyle: 'italic', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-                    "{n.note}"
-                  </p>
+                  {note.note && (
+                    <SpoilerNote hasSpoilers={note.contains_spoilers}>
+                      <p className="feed-note-text">&ldquo;{note.note}&rdquo;</p>
+                    </SpoilerNote>
+                  )}
+                  {note.postId !== post.id && (
+                    <ReviewMeta rating={note.user_rating} moodTags={note.mood_tags} whyWatch={note.why_watch} ratingLabel="Rating" />
+                  )}
                 </div>
               ))}
               {post.allNotes.length > 1 && (
-                <button onClick={() => setShowAllNotes(!showAllNotes)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 4, background: 'none', border: 'none', cursor: 'pointer', color: '#8b5cf6', fontSize: '0.75rem', padding: 0, fontFamily: 'inherit' }}>
+                <button type="button" onClick={() => setShowAllNotes(!showAllNotes)} className="feed-note-toggle">
                   <MessageCircle size={12} />
-                  {showAllNotes ? 'Show less' : `${post.allNotes.length - 1} more note${post.allNotes.length > 2 ? 's' : ''}`}
-                  <ChevronDown size={12} style={{ transition: 'transform .2s', transform: showAllNotes ? 'rotate(180deg)' : 'none' }} />
+                  <span>{showAllNotes ? 'Show less' : `${post.allNotes.length - 1} more note${post.allNotes.length > 2 ? 's' : ''}`}</span>
+                  <ChevronDown size={12} className={showAllNotes ? 'is-open' : ''} />
                 </button>
               )}
             </div>
           ) : post.personal_note ? (
-            <div style={{ background: 'rgba(255,255,255,0.05)', borderRadius: 10, padding: '0.5rem 0.75rem' }}>
-              <p style={{ margin: 0, fontSize: '0.8125rem', color: '#94a3b8', fontStyle: 'italic', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' }}>
-                "{post.personal_note}"
-              </p>
+            <div className="feed-notes">
+              <div className="feed-note">
+                <SpoilerNote hasSpoilers={post.contains_spoilers}>
+                  <p className="feed-note-text">&ldquo;{post.personal_note}&rdquo;</p>
+                </SpoilerNote>
+              </div>
             </div>
-          ) : null}
+          ) : (
+            null
+          )}
         </div>
       </div>
 
-      {/* Reactions & Comments Bar */}
-      <div style={{ padding: '0.75rem 1rem', borderTop: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+      <footer className="feed-card-footer">
         <ReactionBar post={post} />
-        
+
         <button
+          type="button"
           onClick={() => setShowComments(!showComments)}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 6,
-            padding: '0.375rem 0.75rem', borderRadius: 99, fontSize: '0.8125rem', fontWeight: 600,
-            border: showComments ? '1px solid rgba(59,130,246,0.4)' : '1px solid rgba(255,255,255,0.1)',
-            background: showComments ? 'rgba(59,130,246,0.15)' : 'rgba(255,255,255,0.05)',
-            color: showComments ? '#93c5fd' : '#64748b',
-            cursor: 'pointer', fontFamily: 'inherit', transition: 'all .15s',
-          }}
+          className={`feed-action-pill ${showComments ? 'is-comment-open' : ''}`}
         >
           <MessageSquareText size={16} />
           <span>Comment</span>
         </button>
-      </div>
+      </footer>
 
       <AnimatePresence>
         {showComments && (
@@ -320,7 +337,7 @@ export default function MovieCard({ post, currentUserId, priority = false }) {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            style={{ overflow: 'hidden' }}
+            className="feed-comments-motion"
           >
             <CommentSection post={post} />
           </motion.div>

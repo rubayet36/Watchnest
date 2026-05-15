@@ -25,7 +25,8 @@ const fetchPartnerFeed = (uid) => fetch(`/api/feed?user=${uid}&page=0`).then(r =
 const card = {
   display: 'flex', alignItems: 'center', gap: '0.875rem',
   padding: '0.875rem', borderRadius: 16,
-  background: 'rgba(28,28,46,0.6)', border: '1px solid rgba(139,92,246,0.1)',
+  background: 'rgba(255,255,255,0.075)', border: '1px solid rgba(255,255,255,0.12)',
+  backdropFilter: 'blur(18px)',
 }
 
 const pill = (active, color = '#7c3aed') => ({
@@ -333,7 +334,7 @@ function PartnerFeed({ partner, onBack, currentUserId }) {
       ) : !posts?.length ? (
         <div style={{ textAlign:'center', padding:'3rem' }}>
           <div style={{ fontSize:'3rem', marginBottom:'0.75rem' }}>🎬</div>
-          <h3 style={{ color:'#e2e8f0', margin:'0 0 0.5rem' }}>{partner.name} hasn't added any movies yet</h3>
+          <h3 style={{ color:'#e2e8f0', margin:'0 0 0.5rem' }}>{partner.name} has not added any movies yet</h3>
         </div>
       ) : (
         <div style={{ display:'flex', flexDirection:'column', gap:'1rem' }}>
@@ -347,22 +348,15 @@ function PartnerFeed({ partner, onBack, currentUserId }) {
 // ═══════════════════════════════════════════════════════════════
 // MAIN PAGE
 // ═══════════════════════════════════════════════════════════════
-export default function WatchlistPage() {
-  const { user } = useAuth()
-  const [tab, setTab]  = useState('saves')
-
-  // Badge: count pending received requests
-  const { data: followData } = useQuery({ queryKey: ['follows'], queryFn: fetchFollows, staleTime: 30_000 })
-  const pendingCount = (followData?.received || []).filter(r => r.status === 'pending').length
-
-  const Tab = ({ id, label, icon }) => (
-    <button onClick={() => setTab(id)} style={{
+function WatchlistTab({ id, label, icon, active, pendingCount = 0, onClick }) {
+  return (
+    <button onClick={() => onClick(id)} style={{
       padding:'0.625rem 1.25rem', borderRadius:'10px 10px 0 0',
       fontSize:'0.875rem', fontWeight:700, cursor:'pointer', border:'none',
       fontFamily:'inherit', position:'relative', transition:'all .15s',
-      background: tab === id ? 'rgba(124,58,237,0.15)' : 'transparent',
-      color: tab === id ? '#c4b5fd' : '#475569',
-      borderBottom: tab === id ? '2px solid #8b5cf6' : '2px solid transparent',
+      background: active ? 'rgba(34,211,238,0.14)' : 'transparent',
+      color: active ? '#67e8f9' : '#94a3b8',
+      borderBottom: active ? '2px solid #22d3ee' : '2px solid transparent',
       marginBottom:-1,
     }}>
       {icon} {label}
@@ -373,24 +367,34 @@ export default function WatchlistPage() {
       )}
     </button>
   )
+}
+
+export default function WatchlistPage() {
+  const { user } = useAuth()
+  const [tab, setTab]  = useState('saves')
+
+  // Badge: count pending received requests
+  const { data: followData } = useQuery({ queryKey: ['follows'], queryFn: fetchFollows, staleTime: 30_000 })
+  const pendingCount = (followData?.received || []).filter(r => r.status === 'pending').length
 
   return (
-    <div style={{ maxWidth:720, margin:'0 auto', padding:'1.5rem 1rem' }}>
+    <div className="page-shell mobile-safe-bottom">
       {/* Header */}
       <div style={{ display:'flex', alignItems:'center', gap:'0.75rem', marginBottom:'1.25rem' }}>
-        <div style={{ width:44, height:44, borderRadius:14, background:'rgba(245,158,11,0.15)', border:'1px solid rgba(245,158,11,0.2)', display:'flex', alignItems:'center', justifyContent:'center' }}>
+        <div className="glass" style={{ width:44, height:44, borderRadius:14, display:'flex', alignItems:'center', justifyContent:'center' }}>
           <Bookmark size={20} style={{ color:'#f59e0b' }}/>
         </div>
         <div>
-          <h1 style={{ margin:0, fontSize:'1.5rem', fontWeight:900, color:'#e2e8f0' }}>Watchlist</h1>
-          <p style={{ margin:0, fontSize:'0.8125rem', color:'#64748b' }}>Your saves and movie partners</p>
+          <p className="page-kicker">Library</p>
+          <h1 className="page-title gradient-text" style={{ fontSize:'clamp(1.55rem, 5vw, 2.1rem)' }}>Watchlist</h1>
+          <p className="page-subtitle" style={{ marginTop:2 }}>Your saves and movie partners</p>
         </div>
       </div>
 
       {/* Tabs */}
       <div style={{ display:'flex', gap:4, borderBottom:'1px solid rgba(255,255,255,0.07)', marginBottom:'1.5rem' }}>
-        <Tab id="saves"    label="My Saves"         icon="🔖 " />
-        <Tab id="partners" label="Partner Watchlist" icon={<Users size={13} style={{ display:'inline', marginRight:4 }}/>} />
+        <WatchlistTab id="saves" label="My Saves" icon={<Bookmark size={13} style={{ display:'inline', marginRight:4 }}/>} active={tab === 'saves'} onClick={setTab} />
+        <WatchlistTab id="partners" label="Partner Watchlist" icon={<Users size={13} style={{ display:'inline', marginRight:4 }}/>} active={tab === 'partners'} pendingCount={pendingCount} onClick={setTab} />
       </div>
 
       {/* Content */}

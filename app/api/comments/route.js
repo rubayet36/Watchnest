@@ -1,7 +1,8 @@
-export const runtime = 'edge'
+export const runtime = 'nodejs'
 
 import { getAuthFromHeader, unauthorized } from '@/lib/api-auth'
 import { NextResponse } from 'next/server'
+import { sendPushToUser } from '@/lib/push'
 
 export async function GET(request) {
   try {
@@ -73,13 +74,18 @@ export async function POST(request) {
     if (error) throw error
 
     // Notify the post owner (if not self)
-    const { data: postData } = await supabase.from('posts').select('user_id').eq('id', post_id).single()
+    const { data: postData } = await supabase.from('posts').select('user_id, title, tmdb_id, media_type').eq('id', post_id).single()
     if (postData && postData.user_id !== user.id) {
       await supabase.from('notifications').insert({
         user_id:  postData.user_id,
         actor_id: user.id,
         type:     parent_id ? 'reply' : 'comment',
         post_id,
+      })
+      await sendPushToUser(postData.user_id, {
+        body: `${user.user_metadata?.full_name || user.email?.split('@')[0] || 'Someone'} ${parent_id ? 'replied on' : 'commented on'} ${postData.title}`,
+        tag: `${parent_id ? 'reply' : 'comment'}-${post_id}`,
+        url: `/media/${postData.media_type || 'movie'}/${postData.tmdb_id}`,
       })
     }
 
@@ -93,6 +99,11 @@ export async function POST(request) {
           actor_id: user.id,
           type:     'reply',
           post_id,
+        })
+        await sendPushToUser(parentComment.user_id, {
+          body: `${user.user_metadata?.full_name || user.email?.split('@')[0] || 'Someone'} replied to your comment on ${postData?.title || 'WatchNest'}`,
+          tag: `reply-${parent_id}`,
+          url: `/media/${postData?.media_type || 'movie'}/${postData?.tmdb_id || ''}`,
         })
       }
     }

@@ -2,10 +2,10 @@
 
 import { use, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { getMovieDetails, getPosterUrl, getBackdropUrl } from '@/lib/tmdb'
+import { getMovieDetails, getPosterUrl, getBackdropUrl, getProviderLogoUrl } from '@/lib/tmdb'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Star, Clock, ChevronLeft, Play } from 'lucide-react'
+import { ChevronLeft, Play, ShieldAlert, ShoppingBag, Star, Tv } from 'lucide-react'
 import { LoadingSpinner, EmptyState, CardSkeleton } from '@/components/ui/LoadingSpinner'
 import Avatar from '@/components/ui/Avatar'
 import { getCategoryById, timeAgo, REACTIONS } from '@/lib/utils'
@@ -13,10 +13,109 @@ import { motion } from 'framer-motion'
 import { useAuth } from '@/context/AuthContext'
 import { useRouter } from 'next/navigation'
 
-async function fetchMoviePosts(tmdbId) {
-  const res = await fetch(`/api/feed?tmdb=${tmdbId}&page=0`)
+async function fetchMoviePosts(tmdbId, mediaType) {
+  const res = await fetch(`/api/feed?tmdb=${tmdbId}&media=${mediaType}&page=0`)
   const json = await res.json()
   return json.posts || []
+}
+
+const WATCH_REGION = process.env.NEXT_PUBLIC_TMDB_WATCH_REGION || 'US'
+
+function Pill({ children, onClick }) {
+  return (
+    <button onClick={onClick} style={{
+      padding: '0.4rem 0.8rem',
+      background: 'rgba(255, 255, 255, 0.1)',
+      backdropFilter: 'blur(12px)',
+      WebkitBackdropFilter: 'blur(12px)',
+      border: '1px solid rgba(255, 255, 255, 0.15)',
+      borderRadius: '99px',
+      color: '#fff',
+      fontSize: '0.75rem',
+      fontWeight: 600,
+      display: 'flex',
+      alignItems: 'center',
+      gap: '0.4rem',
+      cursor: onClick ? 'pointer' : 'default',
+    }}>
+      {children}
+    </button>
+  )
+}
+
+function ProviderGroup({ title, providers, icon }) {
+  if (!providers?.length) return null
+
+  return (
+    <div className="watch-provider-group">
+      <div className="watch-provider-title">{icon}<span>{title}</span></div>
+      <div className="watch-provider-list">
+        {providers.slice(0, 8).map((provider) => (
+          <div key={`${title}-${provider.provider_id}`} className="watch-provider">
+            {provider.logo_path && (
+              <Image src={getProviderLogoUrl(provider.logo_path, 'w92')} alt={provider.provider_name} width={42} height={42} />
+            )}
+            <span>{provider.provider_name}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function WatchProviders({ providers }) {
+  const regionProviders = providers?.results?.[WATCH_REGION]
+  if (!regionProviders) return null
+
+  return (
+    <motion.section initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.16 }} className="watch-providers">
+      <div className="watch-providers-head">
+        <div>
+          <p>Availability</p>
+          <h2>Where to watch</h2>
+        </div>
+        <span>{WATCH_REGION}</span>
+      </div>
+      <ProviderGroup title="Stream" providers={regionProviders.flatrate} icon={<Tv size={15} />} />
+      <ProviderGroup title="Rent" providers={regionProviders.rent} icon={<ShoppingBag size={15} />} />
+      <ProviderGroup title="Buy" providers={regionProviders.buy} icon={<ShoppingBag size={15} />} />
+      {regionProviders.link && (
+        <a href={regionProviders.link} target="_blank" rel="noreferrer" className="watch-provider-link">
+          View all provider details
+        </a>
+      )}
+    </motion.section>
+  )
+}
+
+function SpoilerReview({ children, hasSpoilers }) {
+  const [revealed, setRevealed] = useState(!hasSpoilers)
+
+  if (!hasSpoilers || revealed) return children
+
+  return (
+    <div className="detail-spoiler-guard">
+      <ShieldAlert size={15} />
+      <span>Spoiler-safe review hidden</span>
+      <button type="button" onClick={() => setRevealed(true)}>Reveal</button>
+    </div>
+  )
+}
+
+function ReviewMeta({ post }) {
+  const rating = Number(post.user_rating)
+  const hasRating = Number.isFinite(rating) && rating > 0
+  const tags = Array.isArray(post.mood_tags) ? post.mood_tags.filter(Boolean) : []
+
+  if (!hasRating && tags.length === 0 && !post.why_watch) return null
+
+  return (
+    <div className="detail-review-meta">
+      {hasRating && <span><Star size={12} /> {rating.toFixed(1)}/10</span>}
+      {tags.map((tag) => <span key={tag}>{tag}</span>)}
+      {post.why_watch && <p>{post.why_watch}</p>}
+    </div>
+  )
 }
 
 export default function MediaDetailPage({ params }) {
@@ -33,7 +132,7 @@ export default function MediaDetailPage({ params }) {
 
   const { data: posts, isLoading: postsLoading } = useQuery({
     queryKey: ['mediaPosts', mediaType, tmdbId],
-    queryFn: () => fetchMoviePosts(tmdbId),
+    queryFn: () => fetchMoviePosts(tmdbId, mediaType),
     staleTime: 30_000,
   })
 
@@ -56,26 +155,6 @@ export default function MediaDetailPage({ params }) {
 
   const allReactions  = posts?.flatMap(p => p.reactions || []) || []
   const reactionCounts = allReactions.reduce((acc, r) => ({ ...acc, [r.reaction_type]: (acc[r.reaction_type]||0)+1 }), {})
-
-  const Pill = ({ children, onClick }) => (
-    <button onClick={onClick} style={{
-      padding: '0.4rem 0.8rem',
-      background: 'rgba(255, 255, 255, 0.1)',
-      backdropFilter: 'blur(12px)',
-      WebkitBackdropFilter: 'blur(12px)',
-      border: '1px solid rgba(255, 255, 255, 0.15)',
-      borderRadius: '99px',
-      color: '#fff',
-      fontSize: '0.75rem',
-      fontWeight: 600,
-      display: 'flex',
-      alignItems: 'center',
-      gap: '0.4rem',
-      cursor: onClick ? 'pointer' : 'default',
-    }}>
-      {children}
-    </button>
-  )
 
   return (
     <div style={{ position: 'relative', minHeight: '100dvh', background: '#0a0a14', overflowX: 'hidden' }}>
@@ -158,6 +237,8 @@ export default function MediaDetailPage({ params }) {
           )}
         </motion.div>
 
+        <WatchProviders providers={movie['watch/providers']} />
+
         {/* Cast */}
         {cast.length > 0 && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.2 }} style={{ marginBottom: '2.5rem' }}>
@@ -229,10 +310,13 @@ export default function MediaDetailPage({ params }) {
                         </span>
                       )}
                     </div>
+                    <ReviewMeta post={post} />
                     {post.personal_note && (
-                      <p style={{ margin: 0, fontSize: '0.9375rem', color: '#cbd5e1', lineHeight: 1.6 }}>
-                        "{post.personal_note}"
-                      </p>
+                      <SpoilerReview hasSpoilers={post.contains_spoilers}>
+                        <p style={{ margin: 0, fontSize: '0.9375rem', color: '#cbd5e1', lineHeight: 1.6 }}>
+                          &quot;{post.personal_note}&quot;
+                        </p>
+                      </SpoilerReview>
                     )}
                   </motion.div>
                 )

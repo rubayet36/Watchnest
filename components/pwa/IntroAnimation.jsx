@@ -16,14 +16,13 @@ export default function IntroAnimation() {
     // Only show once per browser session
     const seen = sessionStorage.getItem('wn_intro_seen')
     if (!seen) {
-      setShow(true)
       sessionStorage.setItem('wn_intro_seen', '1')
 
-      // Start exit after 3.6s
+      const showTimer = setTimeout(() => setShow(true), 0)
       const exitTimer = setTimeout(() => setExit(true), 3600)
-      // Fully unmount after exit animation (0.8s)
       const unmountTimer = setTimeout(() => setShow(false), 4400)
       return () => {
+        clearTimeout(showTimer)
         clearTimeout(exitTimer)
         clearTimeout(unmountTimer)
       }

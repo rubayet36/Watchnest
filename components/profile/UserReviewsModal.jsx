@@ -76,7 +76,7 @@ export default function UserReviewsModal({ profile, onClose }) {
         <div style={S.body}>
           {canReview && (
             <div style={{ background:'rgba(124,58,237,0.08)', border:'1px solid rgba(124,58,237,0.2)', padding:'1rem', borderRadius:16 }}>
-              <p style={{ margin:'0 0 8px', fontSize:'0.875rem', fontWeight:700, color:'#c4b5fd' }}>Rate {profile.name}'s recommendations</p>
+              <p style={{ margin:'0 0 8px', fontSize:'0.875rem', fontWeight:700, color:'#c4b5fd' }}>Rate {profile.name}&apos;s recommendations</p>
               <div style={{ display:'flex', gap:4 }}>
                 {[1,2,3,4,5].map(star => (
                   <button key={star} type="button"
@@ -108,7 +108,7 @@ export default function UserReviewsModal({ profile, onClose }) {
             <div style={{ textAlign:'center', padding:'3rem 1rem' }}>
               <div style={{ fontSize:'2.5rem', marginBottom:'0.75rem' }}>⭐</div>
               <h3 style={{ color:'#e2e8f0', margin:'0 0 0.5rem', fontWeight:600 }}>No reviews yet</h3>
-              <p style={{ color:'#64748b', margin:0, fontSize:'0.875rem' }}>Be the first to rate {profile.name}'s movie taste!</p>
+              <p style={{ color:'#64748b', margin:0, fontSize:'0.875rem' }}>Be the first to rate {profile.name}&apos;s movie taste!</p>
             </div>
           ) : (
             <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
@@ -126,7 +126,7 @@ export default function UserReviewsModal({ profile, onClose }) {
                       {[1,2,3,4,5].map(star => <Star key={star} size={12} fill={r.rating >= star ? '#fbbf24' : 'transparent'} color={r.rating >= star ? '#fbbf24' : '#475569'} />)}
                     </div>
                   </div>
-                  {r.review_text && <p style={{ margin:0, fontSize:'0.875rem', color:'#94a3b8', lineHeight:1.5 }}>"{r.review_text}"</p>}
+                  {r.review_text && <p style={{ margin:0, fontSize:'0.875rem', color:'#94a3b8', lineHeight:1.5 }}>&quot;{r.review_text}&quot;</p>}
                 </div>
               ))}
             </div>
