@@ -30,6 +30,9 @@ const nextConfig = {
   // Strict mode catches bugs earlier
   reactStrictMode: true,
 
+  // Hide the local-only "Rendering..." route indicator. Runtime errors still show.
+  devIndicators: false,
+
   // Experimental: faster builds with partial prerendering (Next.js 15+)
   experimental: {
     optimizePackageImports: ['framer-motion', 'lucide-react', 'date-fns'],

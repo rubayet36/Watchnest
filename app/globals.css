@@ -1424,6 +1424,60 @@ button {
 }
 
 @media (max-width: 640px) {
+  .watchlist-page {
+    gap: 0.78rem;
+  }
+
+  .watchlist-hero {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: flex-start;
+    padding: 0.88rem;
+  }
+
+  .watchlist-hero-signal {
+    grid-column: 1 / -1;
+    width: max-content;
+  }
+
+  .watchlist-tabs {
+    position: sticky;
+    top: calc(64px + env(safe-area-inset-top));
+    z-index: 5;
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+  }
+
+  .watchlist-stats {
+    gap: 0.4rem;
+  }
+
+  .watchlist-stats div {
+    padding: 0.58rem;
+  }
+
+  .watchlist-save-card {
+    grid-template-columns: 52px minmax(0, 1fr);
+    gap: 0.64rem;
+    min-height: 92px;
+    padding: 0.58rem;
+  }
+
+  .watchlist-poster {
+    width: 52px;
+  }
+
+  .watchlist-status-button {
+    grid-column: 2;
+    justify-self: start;
+    min-width: 76px;
+    min-height: 34px;
+    padding: 0.36rem 0.66rem;
+  }
+
+  .watchlist-title-link h3 {
+    font-size: 0.94rem;
+  }
+
   .feed-page {
     gap: 0.78rem;
   }
@@ -1857,6 +1911,421 @@ button {
   font-size: 0.78rem;
   font-weight: 800;
   text-decoration: none;
+}
+
+.watchlist-page {
+  display: flex;
+  flex-direction: column;
+  gap: 0.95rem;
+}
+
+.watchlist-hero {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.85rem;
+  overflow: hidden;
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.watchlist-hero::after {
+  content: "";
+  position: absolute;
+  inset: auto -18% -90% 38%;
+  height: 180px;
+  pointer-events: none;
+  background:
+    radial-gradient(circle, rgba(34, 211, 238, 0.22), transparent 64%),
+    radial-gradient(circle at 70% 30%, rgba(251, 113, 133, 0.2), transparent 58%);
+  filter: blur(14px);
+}
+
+.watchlist-hero-icon,
+.watchlist-empty-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 1px solid rgba(251, 191, 36, 0.28);
+  border-radius: 8px;
+  background: rgba(251, 191, 36, 0.12);
+  color: #fbbf24;
+}
+
+.watchlist-hero-copy {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+}
+
+.watchlist-hero .page-title {
+  margin-top: 0.12rem;
+  font-size: clamp(1.5rem, 4vw, 2rem);
+}
+
+.watchlist-hero .page-subtitle {
+  max-width: 32rem;
+  margin-top: 0.22rem;
+}
+
+.watchlist-hero-signal {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 32px;
+  border: 1px solid rgba(34, 211, 238, 0.28);
+  border-radius: 999px;
+  background: rgba(34, 211, 238, 0.1);
+  color: var(--text-soft);
+  font-size: 0.74rem;
+  font-weight: 820;
+  padding: 0.34rem 0.68rem;
+}
+
+.watchlist-hero-signal svg {
+  color: var(--accent);
+}
+
+.watchlist-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.4rem;
+  border: 1px solid var(--control-border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.045);
+  padding: 0.35rem;
+}
+
+.watchlist-tab {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 40px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.84rem;
+  font-weight: 830;
+  transition: background 0.14s ease, border-color 0.14s ease, color 0.14s ease, transform 0.14s ease;
+}
+
+.watchlist-tab:hover {
+  color: var(--text-soft);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.watchlist-tab.is-active {
+  border-color: rgba(34, 211, 238, 0.34);
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.22), rgba(139, 92, 246, 0.16));
+  color: var(--text);
+  box-shadow: 0 10px 26px rgba(34, 211, 238, 0.1);
+}
+
+.watchlist-tab-count {
+  display: inline-grid;
+  min-width: 18px;
+  height: 18px;
+  place-items: center;
+  border-radius: 999px;
+  background: #fbbf24;
+  color: #111827;
+  font-size: 0.64rem;
+  font-weight: 900;
+  padding: 0 0.28rem;
+}
+
+.watchlist-stack,
+.watchlist-save-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.watchlist-stack {
+  gap: 1rem;
+}
+
+.watchlist-skeleton-grid {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.watchlist-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.55rem;
+}
+
+.watchlist-stats div {
+  min-width: 0;
+  border: 1px solid var(--control-border);
+  border-radius: 8px;
+  background: var(--surface-row-bg);
+  padding: 0.7rem 0.75rem;
+}
+
+.watchlist-stats span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 820;
+  text-transform: uppercase;
+}
+
+.watchlist-stats strong {
+  display: block;
+  margin-top: 0.18rem;
+  color: var(--text);
+  font-size: 1.15rem;
+  font-weight: 880;
+  line-height: 1;
+}
+
+.watchlist-section-title {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.55rem;
+  color: var(--accent);
+}
+
+.watchlist-section-title.is-complete {
+  color: #34d399;
+}
+
+.watchlist-section-title p {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 0.78rem;
+  font-weight: 860;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.watchlist-section-title span {
+  display: inline-grid;
+  min-width: 24px;
+  height: 22px;
+  place-items: center;
+  border: 1px solid var(--control-border);
+  border-radius: 999px;
+  background: var(--control-bg);
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 850;
+  padding: 0 0.42rem;
+}
+
+.watchlist-save-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.78rem;
+  min-height: 98px;
+  border: 1px solid var(--control-border);
+  border-radius: 8px;
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.082), rgba(255, 255, 255, 0.045)),
+    rgba(15, 23, 42, 0.32);
+  padding: 0.65rem;
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.15s ease;
+}
+
+.watchlist-save-card:hover {
+  border-color: rgba(34, 211, 238, 0.3);
+  background:
+    linear-gradient(135deg, rgba(34, 211, 238, 0.08), rgba(255, 255, 255, 0.055)),
+    rgba(15, 23, 42, 0.36);
+  transform: translateY(-1px);
+}
+
+.watchlist-save-card.is-watched {
+  opacity: 0.72;
+}
+
+.watchlist-save-card.is-watched .watchlist-title-link h3 {
+  color: var(--muted);
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+  text-decoration-color: rgba(148, 163, 184, 0.7);
+}
+
+.watchlist-poster-link {
+  flex-shrink: 0;
+}
+
+.watchlist-poster {
+  position: relative;
+  width: 58px;
+  aspect-ratio: 2 / 3;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 7px;
+  background: rgba(15, 23, 42, 0.7);
+  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.28);
+}
+
+.watchlist-save-main {
+  min-width: 0;
+}
+
+.watchlist-title-link {
+  text-decoration: none;
+}
+
+.watchlist-title-link h3 {
+  display: -webkit-box;
+  overflow: hidden;
+  margin: 0;
+  color: var(--text);
+  font-size: 0.98rem;
+  font-weight: 850;
+  line-height: 1.18;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.watchlist-media-badge {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.42rem;
+  border: 1px solid color-mix(in srgb, var(--media-color) 46%, transparent);
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--media-color) 16%, transparent);
+  color: color-mix(in srgb, var(--media-color) 70%, white);
+  font-size: 0.62rem;
+  font-weight: 900;
+  line-height: 1;
+  padding: 0.18rem 0.32rem;
+  text-decoration: none;
+  vertical-align: middle;
+}
+
+.watchlist-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.36rem;
+  margin-top: 0.42rem;
+}
+
+.watchlist-meta-row span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  border: 1px solid var(--control-border);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.052);
+  color: var(--muted);
+  font-size: 0.69rem;
+  font-weight: 760;
+  padding: 0.18rem 0.52rem;
+}
+
+.watchlist-meta-row .watchlist-shared-pill {
+  border-color: rgba(251, 113, 133, 0.22);
+  background: rgba(251, 113, 133, 0.08);
+  color: #fda4af;
+}
+
+.watchlist-status-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.36rem;
+  min-width: 84px;
+  min-height: 38px;
+  border: 1px solid rgba(34, 211, 238, 0.3);
+  border-radius: 999px;
+  background: rgba(34, 211, 238, 0.11);
+  color: #a5f3fc;
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 850;
+  padding: 0.42rem 0.72rem;
+  transition: background 0.14s ease, border-color 0.14s ease, transform 0.14s ease, color 0.14s ease;
+}
+
+.watchlist-status-button:hover {
+  border-color: rgba(34, 211, 238, 0.48);
+  background: rgba(34, 211, 238, 0.17);
+  transform: translateY(-1px);
+}
+
+.watchlist-status-button.is-done {
+  border-color: rgba(16, 185, 129, 0.28);
+  background: rgba(16, 185, 129, 0.12);
+  color: #86efac;
+}
+
+.watchlist-status-button:disabled {
+  cursor: wait;
+  opacity: 0.68;
+}
+
+.watchlist-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.72rem;
+  border-radius: 8px;
+  padding: clamp(2.2rem, 9vw, 3.6rem) 1.25rem;
+  text-align: center;
+}
+
+.watchlist-empty > div:first-child:not(.watchlist-empty-icon) {
+  display: none;
+}
+
+.watchlist-empty h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: 1.18rem;
+  font-weight: 860;
+}
+
+.watchlist-empty p {
+  max-width: 340px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.55;
+}
+
+.watchlist-primary-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  margin-top: 0.2rem;
+  border: 1px solid rgba(34, 211, 238, 0.28);
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  color: white;
+  font-size: 0.82rem;
+  font-weight: 850;
+  padding: 0.5rem 0.92rem;
+  text-decoration: none;
+}
+
+[data-theme="light"] .watchlist-hero,
+[data-theme="light"] .watchlist-save-card,
+[data-theme="light"] .watchlist-tabs,
+[data-theme="light"] .watchlist-stats div {
+  border-color: rgba(15, 23, 42, 0.1);
+  background-color: rgba(255, 255, 255, 0.68);
+}
+
+[data-theme="light"] .watchlist-save-card {
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.7)),
+    rgba(255, 255, 255, 0.76);
 }
 
 .shader-demo-page {

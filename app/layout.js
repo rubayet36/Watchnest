@@ -6,6 +6,7 @@ import ClientProviders from '@/components/providers/ClientProviders'
 import ShaderBackdrop from '@/components/layout/ShaderBackdrop'
 import { ThemeProvider } from '@/context/ThemeContext'
 import localFont from 'next/font/local'
+import Script from 'next/script'
 
 const geist = localFont({
   src: '../public/fonts/geist-latin.woff2',
@@ -61,7 +62,7 @@ export default function RootLayout({ children }) {
     <html lang="en" className={`${geist.variable} ${gambarino.variable}`} data-theme="dark" style={{ colorScheme: 'dark' }} suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://image.tmdb.org" />
-        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        <Script id="watchnest-theme-init" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: themeInitScript }} />
         {/* PWA manifest */}
         <link rel="manifest" href="/api/manifest" />
         {/* iOS PWA */}

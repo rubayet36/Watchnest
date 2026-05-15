@@ -1,5 +1,5 @@
-const STATIC_CACHE = 'watchnest-static-v3'
-const IMAGE_CACHE = 'watchnest-images-v3'
+const STATIC_CACHE = 'watchnest-static-v4'
+const IMAGE_CACHE = 'watchnest-images-v4'
 const STATIC_ASSETS = [
   '/offline.html',
   '/manifest.json',
@@ -44,6 +44,11 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return
   if (!url.origin.startsWith('http')) return
 
+  if (url.origin === self.location.origin && url.pathname.startsWith('/_next/')) {
+    event.respondWith(fetch(request))
+    return
+  }
+
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(
       fetch(request).catch(() =>
@@ -81,18 +86,7 @@ self.addEventListener('fetch', (event) => {
     return
   }
 
-  event.respondWith(
-    caches.match(request).then((cached) => {
-      if (cached) return cached
-      return fetch(request).then((response) => {
-        if (response.ok && url.origin === self.location.origin) {
-          const clone = response.clone()
-          caches.open(STATIC_CACHE).then((cache) => cache.put(request, clone))
-        }
-        return response
-      })
-    })
-  )
+  event.respondWith(fetch(request).catch(() => caches.match(request)))
 })
 
 self.addEventListener('push', (event) => {

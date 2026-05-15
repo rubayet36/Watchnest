@@ -1,11 +1,10 @@
 'use client'
 
-import { useState } from 'react'
-import Image from 'next/image'
+import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Bookmark, CheckCircle, Circle, UserPlus, UserCheck, Users, ChevronLeft, Film, Clock, X, Check, Bell } from 'lucide-react'
+import { Bookmark, CheckCircle, Circle, UserPlus, UserCheck, Users, ChevronLeft, Film, Clock, X, Check, Bell, Play, Sparkles, ListChecks } from 'lucide-react'
 import { getPosterUrl } from '@/lib/tmdb'
 import { LoadingSpinner, CardSkeleton } from '@/components/ui/LoadingSpinner'
 import Avatar from '@/components/ui/Avatar'
@@ -50,22 +49,42 @@ function MySavesTab() {
     mutationFn: ({ save_id, watched }) =>
       authFetch('/api/saves/watched', { method: 'PATCH', body: JSON.stringify({ save_id, watched }) })
         .then(r => r.json()),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['watchlist'] }),
-    onError: e => toast.error(e.message),
+    onMutate: async ({ save_id, watched }) => {
+      await qc.cancelQueries({ queryKey: ['watchlist'] })
+      const previous = qc.getQueryData(['watchlist'])
+      qc.setQueryData(['watchlist'], (old = []) =>
+        old.map(movie => movie.save_id === save_id ? { ...movie, watched } : movie)
+      )
+      return { previous }
+    },
+    onError: (e, _vars, context) => {
+      if (context?.previous) qc.setQueryData(['watchlist'], context.previous)
+      toast.error(e.message)
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ['watchlist'] }),
   })
 
-  if (isLoading) return <div style={{ display:'flex', flexDirection:'column', gap:12 }}><CardSkeleton/><CardSkeleton/></div>
-  if (!movies?.length) return (
-    <div style={{ textAlign:'center', padding:'4rem 1rem' }}>
+  const savedMovies = useMemo(() => movies || [], [movies])
+  const toWatch = useMemo(() => savedMovies.filter(m => !m.watched), [savedMovies])
+  const watched = useMemo(() => savedMovies.filter(m => m.watched), [savedMovies])
+  const sharedCount = useMemo(() => savedMovies.filter(m => m.shared_by_user).length, [savedMovies])
+
+  if (isLoading) return (
+    <div className="watchlist-stack">
+      <div className="watchlist-skeleton-grid">
+        <CardSkeleton/><CardSkeleton/><CardSkeleton/>
+      </div>
+    </div>
+  )
+  if (!savedMovies.length) return (
+    <div className="watchlist-empty glass">
       <div style={{ fontSize:'3rem', marginBottom:'1rem' }}>🔖</div>
-      <h3 style={{ color:'#e2e8f0', margin:'0 0 0.5rem', fontWeight:700 }}>No saves yet</h3>
-      <p style={{ color:'#64748b', margin:0, fontSize:'0.875rem' }}>Tap the bookmark icon on any movie to save it here.</p>
+      <div className="watchlist-empty-icon"><Bookmark size={28}/></div>
+      <h3>No saves yet</h3>
+      <p>Save a movie or series from the feed and it will land here, ready when you are.</p>
       <Link href="/" style={{ display:'inline-block', marginTop:'1.25rem', padding:'0.625rem 1.25rem', background:'linear-gradient(135deg,#7c3aed,#db2777)', borderRadius:12, color:'white', fontWeight:600, textDecoration:'none', fontSize:'0.875rem' }}>Browse feed →</Link>
     </div>
   )
-
-  const toWatch  = movies.filter(m => !m.watched)
-  const watched  = movies.filter(m => m.watched)
 
   const SaveCard = ({ m }) => {
     const cat = getCategoryById(m.category)
@@ -74,51 +93,81 @@ function MySavesTab() {
     const mediaColor = isAnime ? '#ec4899' : (m.media_type === 'tv' ? '#3b82f6' : '#10b981')
 
     return (
-      <motion.div initial={{ opacity:0, x:-8 }} animate={{ opacity:1, x:0 }}
-        style={{ ...card, opacity: m.watched ? 0.65 : 1 }}>
-        <Link href={`/media/${m.media_type || 'movie'}/${m.tmdb_id}`} style={{ flexShrink:0 }}>
-          <div style={{ position:'relative', width:58, height:84, borderRadius:10, overflow:'hidden', background:'#1c1c2e' }}>
+      <motion.article
+        className={`watchlist-save-card ${m.watched ? 'is-watched' : ''}`}
+        initial={{ opacity:0, y:6 }}
+        animate={{ opacity:1, y:0 }}
+        transition={{ duration:0.16 }}
+      >
+        <Link prefetch={false} href={`/media/${m.media_type || 'movie'}/${m.tmdb_id}`} className="watchlist-poster-link">
+          <div className="watchlist-poster">
             <PosterImage src={getPosterUrl(m.poster_path)} alt={m.title} fill sizes="58px" />
           </div>
         </Link>
-        <div style={{ flex:1, minWidth:0 }}>
-          <Link href={`/media/${m.media_type || 'movie'}/${m.tmdb_id}`} style={{ textDecoration:'none' }}>
-            <h3 style={{ margin:'0 0 3px', fontSize:'0.9375rem', fontWeight:800, color: m.watched?'#64748b':'#e2e8f0', textDecoration: m.watched?'line-through':'none' }}>
+        <div className="watchlist-save-main">
+          <Link prefetch={false} href={`/media/${m.media_type || 'movie'}/${m.tmdb_id}`} className="watchlist-title-link">
+            <h3>
               {m.title}
-              <span style={{ marginLeft:8, fontSize:'0.65rem', padding:'2px 5px', background:`${mediaColor}22`, color:mediaColor, border:`1px solid ${mediaColor}44`, borderRadius:4, textDecoration:'none', verticalAlign:'middle' }}>{mediaLabel}</span>
+              <span className="watchlist-media-badge" style={{ '--media-color': mediaColor }}>{mediaLabel}</span>
             </h3>
           </Link>
-          <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginBottom:8 }}>
-            {m.release_year && <span style={{ fontSize:'0.75rem', color:'#475569' }}>{m.release_year}</span>}
-            <span style={{ fontSize:'0.7rem', padding:'2px 8px', borderRadius:99, background:'rgba(139,92,246,0.1)', color:'#a78bfa', border:'1px solid rgba(139,92,246,0.2)' }}>{cat?.label}</span>
+          <div className="watchlist-meta-row">
+            {m.release_year && <span>{m.release_year}</span>}
+            {cat?.label && <span>{cat.label}</span>}
             {m.shared_by_user && (
-              <span style={{ display:'flex', alignItems:'center', gap:3, fontSize:'0.7rem', padding:'2px 8px', borderRadius:99, background:'rgba(244,63,94,0.1)', color:'#f43f5e', border:'1px solid rgba(244,63,94,0.2)' }}>
+              <span className="watchlist-shared-pill">
                 Shared by {m.shared_by_user.name}
               </span>
             )}
           </div>
-          <button onClick={() => toggleWatched.mutate({ save_id: m.save_id, watched: !m.watched })}
-            style={pill(m.watched, '#10b981')}>
-            {m.watched ? <CheckCircle size={13}/> : <Circle size={13}/>}
-            {m.watched ? 'Watched' : 'Mark as Watched'}
-          </button>
         </div>
-      </motion.div>
+        <button
+          aria-label={m.watched ? `Mark ${m.title} as not watched` : `Mark ${m.title} as watched`}
+          disabled={toggleWatched.isPending}
+          onClick={() => toggleWatched.mutate({ save_id: m.save_id, watched: !m.watched })}
+          className={`watchlist-status-button ${m.watched ? 'is-done' : ''}`}
+        >
+          {m.watched ? <CheckCircle size={16}/> : <Circle size={16}/>}
+          <span>{m.watched ? 'Done' : 'Watch'}</span>
+        </button>
+      </motion.article>
     )
   }
 
   return (
-    <div style={{ display:'flex', flexDirection:'column', gap:'1.5rem' }}>
+    <div className="watchlist-stack">
+      <section className="watchlist-stats" aria-label="Watchlist stats">
+        <div>
+          <span>Queued</span>
+          <strong>{toWatch.length}</strong>
+        </div>
+        <div>
+          <span>Watched</span>
+          <strong>{watched.length}</strong>
+        </div>
+        <div>
+          <span>Shared</span>
+          <strong>{sharedCount}</strong>
+        </div>
+      </section>
       {toWatch.length > 0 && (
-        <section>
-          <p style={{ margin:'0 0 0.75rem', fontSize:'0.75rem', fontWeight:700, color:'#64748b', textTransform:'uppercase', letterSpacing:'0.08em' }}>To Watch ({toWatch.length})</p>
-          <div style={{ display:'flex', flexDirection:'column', gap:'0.625rem' }}>{toWatch.map(m => <SaveCard key={m.save_id||m.id} m={m}/>)}</div>
+        <section className="watchlist-section">
+          <div className="watchlist-section-title">
+            <Play size={14}/>
+            <p>Up Next</p>
+            <span>{toWatch.length}</span>
+          </div>
+          <div className="watchlist-save-list">{toWatch.map(m => <SaveCard key={m.save_id||m.id} m={m}/>)}</div>
         </section>
       )}
       {watched.length > 0 && (
-        <section>
-          <p style={{ margin:'0 0 0.75rem', fontSize:'0.75rem', fontWeight:700, color:'#10b981', textTransform:'uppercase', letterSpacing:'0.08em' }}>Already Watched ({watched.length})</p>
-          <div style={{ display:'flex', flexDirection:'column', gap:'0.625rem' }}>{watched.map(m => <SaveCard key={m.save_id||m.id} m={m}/>)}</div>
+        <section className="watchlist-section">
+          <div className="watchlist-section-title is-complete">
+            <CheckCircle size={14}/>
+            <p>Already Watched</p>
+            <span>{watched.length}</span>
+          </div>
+          <div className="watchlist-save-list">{watched.map(m => <SaveCard key={m.save_id||m.id} m={m}/>)}</div>
         </section>
       )}
     </div>
@@ -350,18 +399,11 @@ function PartnerFeed({ partner, onBack, currentUserId }) {
 // ═══════════════════════════════════════════════════════════════
 function WatchlistTab({ id, label, icon, active, pendingCount = 0, onClick }) {
   return (
-    <button onClick={() => onClick(id)} style={{
-      padding:'0.625rem 1.25rem', borderRadius:'10px 10px 0 0',
-      fontSize:'0.875rem', fontWeight:700, cursor:'pointer', border:'none',
-      fontFamily:'inherit', position:'relative', transition:'all .15s',
-      background: active ? 'rgba(34,211,238,0.14)' : 'transparent',
-      color: active ? '#67e8f9' : '#94a3b8',
-      borderBottom: active ? '2px solid #22d3ee' : '2px solid transparent',
-      marginBottom:-1,
-    }}>
-      {icon} {label}
+    <button onClick={() => onClick(id)} className={`watchlist-tab ${active ? 'is-active' : ''}`}>
+      {icon}
+      <span>{label}</span>
       {id === 'partners' && pendingCount > 0 && (
-        <span style={{ position:'absolute', top:6, right:6, width:16, height:16, borderRadius:'50%', background:'#f59e0b', color:'#000', fontSize:'0.625rem', fontWeight:900, display:'flex', alignItems:'center', justifyContent:'center' }}>
+        <span className="watchlist-tab-count">
           {pendingCount}
         </span>
       )}
@@ -378,28 +420,29 @@ export default function WatchlistPage() {
   const pendingCount = (followData?.received || []).filter(r => r.status === 'pending').length
 
   return (
-    <div className="page-shell mobile-safe-bottom">
-      {/* Header */}
-      <div style={{ display:'flex', alignItems:'center', gap:'0.75rem', marginBottom:'1.25rem' }}>
-        <div className="glass" style={{ width:44, height:44, borderRadius:14, display:'flex', alignItems:'center', justifyContent:'center' }}>
-          <Bookmark size={20} style={{ color:'#f59e0b' }}/>
+    <div className="page-shell mobile-safe-bottom watchlist-page">
+      <header className="watchlist-hero glass">
+        <div className="watchlist-hero-icon">
+          <Bookmark size={22}/>
         </div>
-        <div>
+        <div className="watchlist-hero-copy">
           <p className="page-kicker">Library</p>
-          <h1 className="page-title gradient-text" style={{ fontSize:'clamp(1.55rem, 5vw, 2.1rem)' }}>Watchlist</h1>
-          <p className="page-subtitle" style={{ marginTop:2 }}>Your saves and movie partners</p>
+          <h1 className="page-title">Watchlist</h1>
+          <p className="page-subtitle">Your saved queue, finished picks, and partner activity in one fast view.</p>
         </div>
+        <div className="watchlist-hero-signal" aria-hidden="true">
+          <Sparkles size={16}/>
+          <span>Ready</span>
+        </div>
+      </header>
+
+      <div className="watchlist-tabs" role="tablist" aria-label="Watchlist sections">
+        <WatchlistTab id="saves" label="My Saves" icon={<ListChecks size={16}/>} active={tab === 'saves'} onClick={setTab} />
+        <WatchlistTab id="partners" label="Partners" icon={<Users size={16}/>} active={tab === 'partners'} pendingCount={pendingCount} onClick={setTab} />
       </div>
 
-      {/* Tabs */}
-      <div style={{ display:'flex', gap:4, borderBottom:'1px solid rgba(255,255,255,0.07)', marginBottom:'1.5rem' }}>
-        <WatchlistTab id="saves" label="My Saves" icon={<Bookmark size={13} style={{ display:'inline', marginRight:4 }}/>} active={tab === 'saves'} onClick={setTab} />
-        <WatchlistTab id="partners" label="Partner Watchlist" icon={<Users size={13} style={{ display:'inline', marginRight:4 }}/>} active={tab === 'partners'} pendingCount={pendingCount} onClick={setTab} />
-      </div>
-
-      {/* Content */}
       <AnimatePresence mode="wait">
-        <motion.div key={tab} initial={{ opacity:0, y:8 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0 }} transition={{ duration:0.18 }}>
+        <motion.div key={tab} initial={{ opacity:0, y:6 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0 }} transition={{ duration:0.14 }}>
           {tab === 'saves'
             ? <MySavesTab />
             : <PartnersTab currentUserId={user?.id} />
