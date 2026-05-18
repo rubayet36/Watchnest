@@ -1,15 +1,15 @@
 'use client'
 
-import { use, useState } from 'react'
+import { use, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { getMovieDetails, getPosterUrl, getBackdropUrl, getProviderLogoUrl } from '@/lib/tmdb'
 import Image from 'next/image'
 import Link from 'next/link'
-import { ChevronLeft, Play, ShieldAlert, ShoppingBag, Star, Tv } from 'lucide-react'
+import { ChevronLeft, Play, ShieldAlert, ShoppingBag, Star, Tv, X, ChevronDown, MonitorPlay, ExternalLink } from 'lucide-react'
 import { LoadingSpinner, EmptyState, CardSkeleton } from '@/components/ui/LoadingSpinner'
 import Avatar from '@/components/ui/Avatar'
 import { getCategoryById, timeAgo, REACTIONS } from '@/lib/utils'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useAuth } from '@/context/AuthContext'
 import { useRouter } from 'next/navigation'
 
@@ -20,6 +20,27 @@ async function fetchMoviePosts(tmdbId, mediaType) {
 }
 
 const WATCH_REGION = process.env.NEXT_PUBLIC_TMDB_WATCH_REGION || 'US'
+
+const STREAM_SOURCES = [
+  {
+    id: 'videasy',
+    label: 'Videasy',
+    movieUrl: (id) => `https://player.videasy.net/movie/${id}`,
+    tvUrl: (id, season, episode) => `https://player.videasy.net/tv/${id}/${season}/${episode}`,
+  },
+  {
+    id: 'vidsrc',
+    label: 'VidSrc',
+    movieUrl: (id) => `https://vidsrc.to/embed/movie/${id}`,
+    tvUrl: (id, season, episode) => `https://vidsrc.to/embed/tv/${id}/${season}/${episode}`,
+  },
+  {
+    id: '2embed',
+    label: '2Embed',
+    movieUrl: (id) => `https://www.2embed.online/embed/movie/${id}`,
+    tvUrl: (id, season, episode) => `https://www.2embed.online/embed/tv/${id}/${season}/${episode}`,
+  },
+]
 
 function Pill({ children, onClick }) {
   return (
@@ -118,11 +139,169 @@ function ReviewMeta({ post }) {
   )
 }
 
+function StreamPlayer({ tmdbId, mediaType, seasons }) {
+  const isTV = mediaType === 'tv'
+  const seasonOptions = useMemo(() => {
+    const available = (seasons || [])
+      .filter(s => s.season_number > 0 && s.episode_count > 0)
+      .sort((a, b) => a.season_number - b.season_number)
+
+    return available.length
+      ? available
+      : Array.from({ length: 10 }, (_, i) => ({ season_number: i + 1, episode_count: 30 }))
+  }, [seasons])
+
+  const [sourceId, setSourceId] = useState(STREAM_SOURCES[0].id)
+  const [season, setSeason] = useState(seasonOptions[0]?.season_number || 1)
+  const [episode, setEpisode] = useState(1)
+  const [iframeLoaded, setIframeLoaded] = useState(false)
+  const selectedSource = STREAM_SOURCES.find(source => source.id === sourceId) || STREAM_SOURCES[0]
+  const currentSeason = seasonOptions.find(s => s.season_number === season) || seasonOptions[0]
+  const episodeCount = currentSeason?.episode_count || 30
+  const safeEpisode = Math.min(episode, episodeCount)
+
+  const streamUrl = isTV
+    ? selectedSource.tvUrl(tmdbId, season, safeEpisode)
+    : selectedSource.movieUrl(tmdbId)
+
+  return (
+    <div className="stream-player">
+      <div className="stream-source-row" aria-label="Streaming source">
+        {STREAM_SOURCES.map(source => (
+          <button
+            key={source.id}
+            type="button"
+            className={`stream-source-button ${source.id === sourceId ? 'is-active' : ''}`}
+            onClick={() => {
+              if (source.id === sourceId) return
+              setIframeLoaded(false)
+              setSourceId(source.id)
+            }}
+          >
+            {source.label}
+          </button>
+        ))}
+      </div>
+
+      <div style={{
+        position: 'relative', width: '100%', aspectRatio: '16/9',
+        borderRadius: 20, overflow: 'hidden',
+        background: '#0d0d1a',
+        boxShadow: '0 24px 60px rgba(0,0,0,0.8)',
+        border: '1px solid rgba(255,255,255,0.1)',
+      }}>
+        {/* Loading skeleton — visible until iframe fires onLoad */}
+        {!iframeLoaded && (
+          <div style={{
+            position: 'absolute', inset: 0, zIndex: 2,
+            background: 'linear-gradient(135deg, #0d0d1a 0%, #1a1a2e 50%, #0d0d1a 100%)',
+            display: 'flex', flexDirection: 'column',
+            alignItems: 'center', justifyContent: 'center', gap: '1rem',
+          }}>
+            {/* Shimmer bar */}
+            <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
+              <div className="stream-shimmer" />
+            </div>
+            {/* Spinner ring */}
+            <div className="stream-spinner" />
+            <p style={{ color: '#64748b', fontSize: '0.8rem', fontWeight: 600, letterSpacing: '0.06em', margin: 0 }}>
+              Loading stream…
+            </p>
+          </div>
+        )}
+        <iframe
+          key={streamUrl}
+          src={streamUrl}
+          title={`${selectedSource.label} player`}
+          width="100%"
+          height="100%"
+          style={{ position: 'absolute', inset: 0, border: 'none', opacity: iframeLoaded ? 1 : 0, transition: 'opacity 0.4s' }}
+          allowFullScreen
+          allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+          referrerPolicy="origin"
+          onLoad={() => {
+            setIframeLoaded(true)
+          }}
+        />
+      </div>
+
+      <div className="stream-fallback">
+        <span>If {selectedSource.label} stalls, switch source or open the player directly.</span>
+        <a href={streamUrl} target="_blank" rel="noreferrer">
+          <ExternalLink size={14} /> Open player
+        </a>
+      </div>
+
+      {isTV && (
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          style={{
+            display: 'flex', gap: '0.75rem', marginTop: '1rem',
+            flexWrap: 'wrap', alignItems: 'center',
+          }}
+        >
+          <div style={{ flex: 1, minWidth: 120 }}>
+            <label style={{ fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 4 }}>Season</label>
+            <div style={{ position: 'relative' }}>
+              <select
+                value={season}
+                onChange={e => {
+                  setIframeLoaded(false)
+                  setSeason(Number(e.target.value))
+                  setEpisode(1)
+                }}
+                style={{
+                  width: '100%', appearance: 'none',
+                  background: 'rgba(255,255,255,0.07)',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  borderRadius: 12, padding: '0.6rem 2.2rem 0.6rem 0.875rem',
+                  color: '#fff', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer',
+                }}
+              >
+                {seasonOptions.map(s => (
+                  <option key={s.season_number} value={s.season_number} style={{ background: '#1c1c2e' }}>Season {s.season_number}</option>
+                ))}
+              </select>
+              <ChevronDown size={14} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', pointerEvents: 'none' }} />
+            </div>
+          </div>
+          <div style={{ flex: 1, minWidth: 120 }}>
+            <label style={{ fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', display: 'block', marginBottom: 4 }}>Episode</label>
+            <div style={{ position: 'relative' }}>
+              <select
+                value={safeEpisode}
+                onChange={e => {
+                  setIframeLoaded(false)
+                  setEpisode(Number(e.target.value))
+                }}
+                style={{
+                  width: '100%', appearance: 'none',
+                  background: 'rgba(255,255,255,0.07)',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  borderRadius: 12, padding: '0.6rem 2.2rem 0.6rem 0.875rem',
+                  color: '#fff', fontSize: '0.875rem', fontWeight: 600, cursor: 'pointer',
+                }}
+              >
+                {Array.from({ length: episodeCount }, (_, i) => i + 1).map(ep => (
+                  <option key={ep} value={ep} style={{ background: '#1c1c2e' }}>Episode {ep}</option>
+                ))}
+              </select>
+              <ChevronDown size={14} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8', pointerEvents: 'none' }} />
+            </div>
+          </div>
+        </motion.div>
+      )}
+    </div>
+  )
+}
+
 export default function MediaDetailPage({ params }) {
   const { tmdbId, mediaType } = use(params)
   const { user } = useAuth()
   const router = useRouter()
   const [expandedOverview, setExpandedOverview] = useState(false)
+  const [isStreaming, setIsStreaming] = useState(false)
 
   const { data: movie, isLoading: movieLoading } = useQuery({
     queryKey: ['media', mediaType, tmdbId],
@@ -182,33 +361,91 @@ export default function MediaDetailPage({ params }) {
           </div>
         </div>
 
-        {/* Big Poster Card */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
-          style={{ position: 'relative', width: '100%', aspectRatio: '2/3', maxHeight: '70vh', borderRadius: 32, overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.6)', marginBottom: '1.5rem', border: '1px solid rgba(255,255,255,0.1)' }}>
-          {poster ? (
-            <Image src={poster} alt={movie.title || movie.name} fill sizes="(max-width: 640px) 100vw, 640px" priority style={{ objectFit: 'cover' }} />
+        {/* Stream Player or Poster */}
+        <AnimatePresence mode="wait">
+          {isStreaming ? (
+            <motion.div
+              key="player"
+              initial={{ opacity: 0, scale: 0.97 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.97 }}
+              style={{ marginBottom: '1.5rem' }}
+            >
+              {/* Player Header */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#ef4444', animation: 'pulse 1.5s infinite' }} />
+                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#ef4444', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Live Stream</span>
+                </div>
+                <button
+                  onClick={() => setIsStreaming(false)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: '0.4rem',
+                    padding: '0.35rem 0.75rem', borderRadius: 99,
+                    background: 'rgba(255,255,255,0.07)',
+                    border: '1px solid rgba(255,255,255,0.12)',
+                    color: '#94a3b8', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer',
+                  }}
+                >
+                  <X size={13} /> Close Player
+                </button>
+              </div>
+              <StreamPlayer
+                tmdbId={tmdbId}
+                mediaType={mediaType}
+                seasons={movie.seasons}
+              />
+            </motion.div>
           ) : (
-            <div style={{ width: '100%', height: '100%', background: '#1c1c2e' }} />
+            <motion.div
+              key="poster"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              style={{ position: 'relative', width: '100%', aspectRatio: '2/3', maxHeight: '70vh', borderRadius: 32, overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.6)', marginBottom: '1.5rem', border: '1px solid rgba(255,255,255,0.1)' }}
+            >
+              {poster ? (
+                <Image src={poster} alt={movie.title || movie.name} fill sizes="(max-width: 640px) 100vw, 640px" priority loading="eager" style={{ objectFit: 'cover' }} />
+              ) : (
+                <div style={{ width: '100%', height: '100%', background: '#1c1c2e' }} />
+              )}
+
+              {/* Gradient overlay for buttons */}
+              <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, transparent 50%)' }} />
+
+              {/* Button row at bottom */}
+              <div style={{ position: 'absolute', bottom: '1.25rem', left: '1.25rem', right: '1.25rem', display: 'flex', gap: '0.625rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                {trailerUrl && (
+                  <button onClick={() => window.open(trailerUrl, '_blank')} style={{
+                    padding: '0.7rem 1.1rem', borderRadius: 99,
+                    background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+                    border: '1px solid rgba(255,255,255,0.18)',
+                    color: '#fff', fontSize: '0.8rem', fontWeight: 700,
+                    display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer',
+                    transition: 'transform 0.2s, background 0.2s',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.background = 'rgba(0,0,0,0.75)' }}
+                  onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.background = 'rgba(0,0,0,0.55)' }}>
+                    <Play size={14} fill="#fff" /> Trailer
+                  </button>
+                )}
+                <button onClick={() => setIsStreaming(true)} style={{
+                  padding: '0.7rem 1.25rem', borderRadius: 99,
+                  background: 'linear-gradient(135deg, #7c3aed, #a855f7)',
+                  border: '1px solid rgba(168,85,247,0.5)',
+                  color: '#fff', fontSize: '0.8rem', fontWeight: 700,
+                  display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer',
+                  boxShadow: '0 4px 20px rgba(124,58,237,0.5)',
+                  transition: 'transform 0.2s, box-shadow 0.2s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.boxShadow = '0 8px 30px rgba(124,58,237,0.7)' }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(124,58,237,0.5)' }}>
+                  <MonitorPlay size={15} /> Stream Now
+                </button>
+              </div>
+            </motion.div>
           )}
-          
-          {/* Watch Trailer Button Overlay */}
-          {trailerUrl && (
-            <button onClick={() => window.open(trailerUrl, '_blank')} style={{
-              position: 'absolute', bottom: '1.25rem', right: '1.25rem',
-              padding: '0.75rem 1.25rem', borderRadius: 99,
-              background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-              border: '1px solid rgba(255,255,255,0.2)',
-              color: '#fff', fontSize: '0.875rem', fontWeight: 700,
-              display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer',
-              boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
-              transition: 'transform 0.2s',
-            }}
-            onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'}
-            onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}>
-              <Play size={16} fill="#fff" /> Watch Trailer
-            </button>
-          )}
-        </motion.div>
+        </AnimatePresence>
 
         {/* Title and Overview */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} style={{ marginBottom: '2.5rem' }}>
@@ -327,8 +564,107 @@ export default function MediaDetailPage({ params }) {
       </div>
 
       <style>{`
-        .hide-scrollbar::-webkit-scrollbar {
-          display: none;
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .stream-player {
+          width: 100%;
+        }
+        .stream-source-row {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          gap: 0.45rem;
+          margin-bottom: 0.75rem;
+          padding: 0.35rem;
+          border: 1px solid rgba(255,255,255,0.08);
+          border-radius: 16px;
+          background: rgba(255,255,255,0.045);
+        }
+        .stream-source-button {
+          min-width: 0;
+          min-height: 38px;
+          border: 1px solid transparent;
+          border-radius: 12px;
+          background: transparent;
+          color: #94a3b8;
+          cursor: pointer;
+          font-size: 0.76rem;
+          font-weight: 800;
+        }
+        .stream-source-button.is-active {
+          border-color: rgba(168,85,247,0.4);
+          background: rgba(168,85,247,0.16);
+          color: #fff;
+        }
+        .stream-fallback {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.75rem;
+          margin-top: 0.75rem;
+          padding: 0.7rem 0.78rem;
+          border: 1px solid rgba(245,158,11,0.26);
+          border-radius: 14px;
+          background: rgba(245,158,11,0.08);
+          color: #cbd5e1;
+          font-size: 0.78rem;
+          font-weight: 750;
+        }
+        .stream-fallback a {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.35rem;
+          color: #fef3c7;
+          text-decoration: none;
+          white-space: nowrap;
+        }
+        @media (max-width: 520px) {
+          .stream-source-row {
+            grid-template-columns: 1fr;
+          }
+          .stream-fallback {
+            align-items: stretch;
+            flex-direction: column;
+          }
+          .stream-fallback a {
+            justify-content: center;
+            min-height: 36px;
+            border-radius: 999px;
+            background: rgba(245,158,11,0.14);
+          }
+        }
+        @keyframes pulse {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0.3; }
+        }
+        select option { background: #1c1c2e; color: #fff; }
+
+        /* Stream player loading states */
+        .stream-shimmer {
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(
+            90deg,
+            transparent 0%,
+            rgba(255, 255, 255, 0.04) 40%,
+            rgba(255, 255, 255, 0.08) 50%,
+            rgba(255, 255, 255, 0.04) 60%,
+            transparent 100%
+          );
+          animation: shimmer 1.8s infinite;
+          transform: translateX(-100%);
+        }
+        @keyframes shimmer {
+          to { transform: translateX(100%); }
+        }
+        .stream-spinner {
+          width: 44px;
+          height: 44px;
+          border-radius: 50%;
+          border: 3px solid rgba(255,255,255,0.08);
+          border-top-color: #a855f7;
+          animation: spin 0.85s linear infinite;
+        }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
         }
       `}</style>
     </div>

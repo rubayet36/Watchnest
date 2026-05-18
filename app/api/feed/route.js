@@ -49,8 +49,22 @@ function applyFeedFilters(query, { genreFilter, userFilter, tmdbFilter, mediaFil
   if (genreFilter) nextQuery = nextQuery.contains('genres', [genreFilter])
   if (userFilter) nextQuery = nextQuery.eq('user_id', userFilter)
   if (tmdbFilter) nextQuery = nextQuery.eq('tmdb_id', parseInt(tmdbFilter))
-  if (mediaFilter) nextQuery = nextQuery.eq('media_type', mediaFilter)
+  if (mediaFilter === 'movie') nextQuery = nextQuery.eq('media_type', 'movie')
+  if (mediaFilter === 'tv' || mediaFilter === 'anime') nextQuery = nextQuery.eq('media_type', 'tv')
+  if (mediaFilter === 'anime') nextQuery = nextQuery.contains('genres', ['Animation'])
   return nextQuery
+}
+
+function applyTypeFilter(posts, mediaFilter) {
+  if (!mediaFilter) return posts
+  return posts.filter((post) => {
+    const mediaType = post.media_type || 'movie'
+    const isAnime = mediaType === 'tv' && Array.isArray(post.genres) && post.genres.includes('Animation')
+    if (mediaFilter === 'movie') return mediaType === 'movie'
+    if (mediaFilter === 'tv') return mediaType === 'tv' && !isAnime
+    if (mediaFilter === 'anime') return isAnime
+    return true
+  })
 }
 
 async function fetchLegacyFeed(supabase, filters) {
@@ -165,7 +179,7 @@ export async function GET(request) {
     const from = page * PAGE_SIZE
     const to = from + PAGE_SIZE - 1
 
-    if (!tmdbFilter) {
+    if (!tmdbFilter && !mediaFilter) {
       const { data: authData } = await supabase.auth.getUser()
       const { data: rpcRows, error: rpcError } = await supabase.rpc('get_feed_v2', {
         p_viewer_id: authData?.user?.id || null,
@@ -188,10 +202,10 @@ export async function GET(request) {
     const data = await fetchLegacyFeed(supabase, { genreFilter, userFilter, tmdbFilter, mediaFilter })
 
     if (tmdbFilter) {
-      return NextResponse.json({ posts: data, nextPage: null })
+      return NextResponse.json({ posts: applyTypeFilter(data, mediaFilter), nextPage: null })
     }
 
-    const posts = mergeLegacyPosts(data)
+    const posts = applyTypeFilter(mergeLegacyPosts(data), mediaFilter)
     const pagedPosts = posts.slice(from, to + 1)
     const hasMore = posts.length > to + 1
 

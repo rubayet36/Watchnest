@@ -1,58 +1,64 @@
 'use client'
 
 import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react'
+import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { authFetch } from '@/lib/auth-fetch'
 
 const AuthContext = createContext({})
+const profileEnsureRequests = new Map()
 
 export function AuthProvider({ children }) {
-  const [user, setUser]       = useState(null)
+  const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
+  const router = useRouter()
+  const pathname = usePathname()
   const mounted = useRef(true)
+  const activeUserId = useRef(null)
 
-  const fetchProfile = useCallback(async (authUser) => {
+  const fetchProfile = useCallback(async (authUser, isNewSignIn = false) => {
     if (!authUser) return null
-    // Build profile instantly from JWT metadata — no network round trip needed.
-    // The /api/profile-ensure POST will still run in the background to upsert
-    // the DB row, but we don't block the UI waiting for it.
+    activeUserId.current = authUser.id
+
     const instant = {
-      id:         authUser.id,
-      name:       authUser.user_metadata?.full_name || authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'User',
+      id: authUser.id,
+      name: authUser.user_metadata?.full_name || authUser.user_metadata?.name || authUser.email?.split('@')[0] || 'User',
       avatar_url: authUser.user_metadata?.avatar_url || authUser.user_metadata?.picture || null,
-      email:      authUser.email,
-      username:   authUser.email?.split('@')[0] || 'user',
+      email: authUser.email,
+      username: authUser.email?.split('@')[0] || 'user',
+      account_type: 'user',
+      approved: false,
     }
-    // Fire-and-forget: upsert the DB row without blocking the UI
-    fetch('/api/profile-ensure', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: authUser.id }),
-    }).then(r => r.ok ? r.json() : null)
-      .then(data => {
-        // Merge in any extra DB fields (bio, etc.) once the response arrives
-        if (data?.profile && mounted.current) {
-          setProfile(prev => ({ ...instant, ...data.profile }))
-        }
+
+    const method = isNewSignIn && !profileEnsureRequests.has(authUser.id) ? 'POST' : 'GET'
+    if (method === 'POST') profileEnsureRequests.set(authUser.id, true)
+
+    try {
+      const res = await authFetch('/api/profile-ensure', {
+        method,
+        body: method === 'POST' ? JSON.stringify({ userId: authUser.id }) : undefined,
       })
-      .catch(() => {}) // silently ignore — instant profile is already shown
-    return instant
+      const data = res.ok ? await res.json() : null
+      return data?.profile ? { ...instant, ...data.profile } : instant
+    } catch {
+      if (method === 'POST') profileEnsureRequests.delete(authUser.id)
+      return instant
+    }
   }, [])
 
   useEffect(() => {
     mounted.current = true
     const supabase = createClient()
 
-    // Safety timeout — never block longer than 5s
     const timeout = setTimeout(() => {
       if (mounted.current) setLoading(false)
     }, 5000)
 
-    // 1. Get session (reads localStorage — fast with @supabase/supabase-js)
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!mounted.current) return
       if (session?.user) {
+        activeUserId.current = session.user.id
         setUser(session.user)
         const p = await fetchProfile(session.user)
         if (mounted.current) setProfile(p)
@@ -64,14 +70,15 @@ export function AuthProvider({ children }) {
       clearTimeout(timeout)
     })
 
-    // 2. Listen for auth state changes (sign in after OAuth redirect, sign out)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         if (!mounted.current) return
         const authUser = session?.user ?? null
+        activeUserId.current = authUser?.id || null
         setUser(authUser)
         if (authUser) {
-          const p = await fetchProfile(authUser)
+          const isNewSignIn = event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED'
+          const p = await fetchProfile(authUser, isNewSignIn)
           if (mounted.current) setProfile(p)
         } else {
           setProfile(null)
@@ -87,21 +94,42 @@ export function AuthProvider({ children }) {
     }
   }, [fetchProfile])
 
-  async function signInWithGoogle() {
+  useEffect(() => {
+    if (loading || !user || !profile) return
+    const isApprovalPath = pathname === '/pending-approval'
+    const isPublicPath = isApprovalPath || pathname === '/login' || pathname?.startsWith('/auth')
+    const canUseApp = profile.account_type === 'admin' || profile.approved
+
+    if (!canUseApp && !isPublicPath) {
+      router.replace('/pending-approval')
+    } else if (canUseApp && isApprovalPath) {
+      router.replace('/')
+    }
+  }, [loading, user, profile, pathname, router])
+
+  async function signInWithEmail(email, password) {
     const supabase = createClient()
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) throw error
+  }
+
+  async function signUpWithEmail(email, password, name) {
+    const supabase = createClient()
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-        queryParams: { access_type: 'offline', prompt: 'consent' },
+        data: { full_name: name, name },
       },
     })
     if (error) throw error
+    return { needsConfirmation: Boolean(data.user && !data.session) }
   }
 
   async function signOut() {
     const supabase = createClient()
     await supabase.auth.signOut()
+    activeUserId.current = null
     setUser(null)
     setProfile(null)
     window.location.href = '/login'
@@ -124,7 +152,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, profile, loading, signInWithGoogle, signOut, updateProfile }}>
+    <AuthContext.Provider value={{ user, profile, loading, signInWithEmail, signUpWithEmail, signOut, updateProfile }}>
       {children}
     </AuthContext.Provider>
   )

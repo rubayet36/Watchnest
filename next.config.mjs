@@ -11,6 +11,10 @@ const nextConfig = {
     // Cache optimized images for 7 days
     minimumCacheTTL: 604800,
 
+    // TMDB images are served from their own CDN — bypass Next.js proxy
+    // to avoid /_next/image 504 Gateway Timeout errors
+    unoptimized: true,
+
     remotePatterns: [
       {
         protocol: 'https',

@@ -22,10 +22,14 @@ export async function GET(request, { params }) {
       if (key !== 'api_key') tmdbUrl.searchParams.set(key, value)
     })
 
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 6_000) // 6 s hard cap
+
     const response = await fetch(tmdbUrl.toString(), {
       ...(isSearchEndpoint ? { cache: 'no-store' } : { next: { revalidate: 60 * 60 } }),
       headers: { accept: 'application/json' },
-    })
+      signal: controller.signal,
+    }).finally(() => clearTimeout(timer))
 
     const data = await response.json().catch(() => ({}))
 

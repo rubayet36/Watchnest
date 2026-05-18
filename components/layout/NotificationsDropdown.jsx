@@ -8,6 +8,7 @@ import Avatar from '@/components/ui/Avatar'
 import { authFetch } from '@/lib/auth-fetch'
 import { timeAgo } from '@/lib/utils'
 import Link from 'next/link'
+import { useAuth } from '@/context/AuthContext'
 
 function getPlainMessage(n) {
   const name = n.actor?.name || 'Someone'
@@ -37,13 +38,20 @@ function getNotificationLink(n) {
 export default function NotificationsDropdown() {
   const [isOpen, setIsOpen] = useState(false)
   const [isVisible, setIsVisible] = useState(true)
+  const [shouldFetch, setShouldFetch] = useState(false)
   const ref = useRef(null)
   const queryClient = useQueryClient()
+  const { user } = useAuth()
 
   const { data, isLoading } = useQuery({
-    queryKey: ['notifications'],
+    queryKey: ['notifications', user?.id],
     queryFn: () => authFetch('/api/notifications').then(r => r.json()),
-    refetchInterval: isVisible ? (isOpen ? 30000 : 60000) : false,
+    enabled: Boolean(user) && isVisible && (shouldFetch || isOpen),
+    // Only poll while the dropdown is open; no background polling
+    refetchInterval: isOpen ? 60_000 : false,
+    staleTime: 5 * 60_000,   // 5 minutes — notifications don't need real-time
+    refetchOnWindowFocus: false,
+    retry: 1,
   })
 
   const markRead = useMutation({
@@ -68,6 +76,13 @@ export default function NotificationsDropdown() {
     document.addEventListener('visibilitychange', syncVisibility)
     return () => document.removeEventListener('visibilitychange', syncVisibility)
   }, [])
+
+  useEffect(() => {
+    if (!user || isOpen || shouldFetch) return
+    // Delay fetch by 8s so it doesn't compete with page-critical requests
+    const timeout = window.setTimeout(() => setShouldFetch(true), 8_000)
+    return () => window.clearTimeout(timeout)
+  }, [isOpen, shouldFetch, user])
 
   const notifications = useMemo(() => data?.notifications || [], [data?.notifications])
   const unreadCount = notifications.filter(n => !n.read).length

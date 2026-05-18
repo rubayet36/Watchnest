@@ -14,6 +14,7 @@ import MovieCard from '@/components/feed/MovieCard'
 import { Film, Star, Calendar, Grid, List, MessageSquareHeart } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import UserReviewsModal from '@/components/profile/UserReviewsModal'
+import AdminApprovalPanel from '@/components/profile/AdminApprovalPanel'
 
 export default function ProfilePage({ params }) {
   const { userId } = use(params)
@@ -35,8 +36,16 @@ export default function ProfilePage({ params }) {
 
   const isOwnProfile = user?.id === userId
 
-  // Use own profile from context if on own page and DB profile not loaded
-  const displayProfile = profile || (isOwnProfile ? myProfile : null)
+  // Use the live auth profile for own-account admin/approval fields; the profile
+  // query can be briefly stale after changing account_type in Supabase.
+  const displayProfile = isOwnProfile
+    ? { ...(profile || {}), ...(myProfile || {}) }
+    : profile
+  const isAdminProfile = isOwnProfile && (
+    myProfile?.account_type === 'admin' ||
+    profile?.account_type === 'admin' ||
+    displayProfile?.account_type === 'admin'
+  )
 
   const totalMovies = posts?.length || 0
   const genres = posts?.flatMap(p => p.genres || []) || []
@@ -135,6 +144,8 @@ export default function ProfilePage({ params }) {
           ))}
         </div>
       </motion.div>
+
+      {isAdminProfile && <AdminApprovalPanel />}
 
       {/* Category filter */}
       {posts && posts.length > 0 && (

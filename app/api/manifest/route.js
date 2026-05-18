@@ -1,6 +1,12 @@
 export const runtime = 'edge'
 
-export async function GET() {
+export async function GET(request) {
+  // Derive the origin so icon URLs are absolute.
+  // Browsers resolve relative manifest icon paths relative to the manifest URL
+  // (/api/manifest), NOT the site root — so /icon.png would resolve to
+  // /api/icon.png which 404s. Absolute URLs fix this.
+  const origin = new URL(request.url).origin
+
   const manifest = JSON.stringify({
     name: "WatchNest",
     short_name: "WatchNest",
@@ -12,8 +18,8 @@ export async function GET() {
     orientation: "portrait-primary",
     categories: ["entertainment", "social"],
     icons: [
-      { src: "/android-chrome-192x192.png", sizes: "192x192", type: "image/png", purpose: "any" },
-      { src: "/android-chrome-512x512.png", sizes: "512x512", type: "image/png", purpose: "any maskable" }
+      { src: `${origin}/android-chrome-192x192.png`, sizes: "192x192", type: "image/png", purpose: "any" },
+      { src: `${origin}/android-chrome-512x512.png`, sizes: "512x512", type: "image/png", purpose: "any maskable" }
     ],
     shortcuts: [
       { name: "Home Feed", url: "/", description: "View your movie feed" },

@@ -53,7 +53,7 @@ export default function SettingsPage() {
           )}
           <div>
             <p className="settings-email">{profile?.email || user?.email}</p>
-            <p className="settings-muted">Avatar synced from Google</p>
+            <p className="settings-muted">Avatar synced from your account</p>
           </div>
         </div>
 

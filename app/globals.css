@@ -544,6 +544,19 @@ button {
   padding: 0.28rem 0.68rem;
 }
 
+.feed-filter-stack {
+  display: grid;
+  gap: 0.52rem;
+}
+
+.feed-filter-group-label {
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 .feed-filter-scroller {
   display: flex;
   gap: 0.48rem;
@@ -1911,6 +1924,145 @@ button {
   font-size: 0.78rem;
   font-weight: 800;
   text-decoration: none;
+}
+
+.admin-approval-panel {
+  display: grid;
+  gap: 0.85rem;
+  margin-bottom: 1rem;
+  padding: 1rem;
+}
+
+.admin-approval-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.admin-approval-head h2 {
+  margin: 0.12rem 0 0;
+  color: var(--text);
+  font-size: 1.12rem;
+  font-weight: 880;
+}
+
+.admin-approval-head > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.38rem;
+  border: 1px solid rgba(34, 211, 238, 0.24);
+  border-radius: 999px;
+  background: rgba(34, 211, 238, 0.1);
+  color: var(--text-soft);
+  padding: 0.32rem 0.62rem;
+  font-size: 0.74rem;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.admin-approval-list {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.admin-approval-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.66rem;
+  border: 1px solid var(--control-border);
+  border-radius: 16px;
+  background: var(--surface-row-bg);
+}
+
+.admin-approval-copy {
+  min-width: 0;
+}
+
+.admin-approval-copy strong,
+.admin-approval-copy span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-approval-copy strong {
+  color: var(--text);
+  font-size: 0.88rem;
+}
+
+.admin-approval-copy span {
+  margin-top: 0.1rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.admin-approval-status,
+.admin-approval-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.36rem;
+  min-height: 34px;
+  border: 1px solid var(--control-border);
+  border-radius: 999px;
+  padding: 0 0.66rem;
+  font-size: 0.74rem;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.admin-approval-status {
+  background: rgba(245, 158, 11, 0.1);
+  color: #fbbf24;
+}
+
+.admin-approval-status.is-approved {
+  background: rgba(16, 185, 129, 0.1);
+  color: #34d399;
+}
+
+.admin-approval-action {
+  background: rgba(34, 211, 238, 0.12);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.admin-approval-action.is-muted {
+  background: var(--control-bg);
+  color: var(--muted);
+}
+
+.admin-approval-action:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.admin-approval-state {
+  display: grid;
+  min-height: 72px;
+  place-items: center;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+@media (max-width: 560px) {
+  .admin-approval-head {
+    display: grid;
+  }
+
+  .admin-approval-row {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .admin-approval-status,
+  .admin-approval-action {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
 }
 
 .watchlist-page {

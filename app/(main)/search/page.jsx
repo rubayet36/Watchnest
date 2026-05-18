@@ -11,7 +11,7 @@ import PosterImage from '@/components/ui/PosterImage'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useQuery } from '@tanstack/react-query'
 import dynamic from 'next/dynamic'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 
 const AddMovieModal = dynamic(() => import('@/components/movie/AddMovieModal'), { ssr: false })
 
@@ -122,7 +122,6 @@ function ResultRow({ movie, searchMode, index, onAdd }) {
 
 // ── Main search component ─────────────────────────────────────
 function SearchContent() {
-  const router = useRouter()
   const searchParams = useSearchParams()
 
   const initialMode  = searchParams.get('mode') === 'tmdb' ? 'tmdb' : 'nest'
@@ -150,10 +149,11 @@ function SearchContent() {
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   function updateUrl(mode, q) {
+    if (typeof window === 'undefined') return
     const params = new URLSearchParams()
     if (mode) params.set('mode', mode)
     if (q)    params.set('q', q)
-    router.replace(`/search${params.toString() ? `?${params}` : ''}`, { scroll: false })
+    window.history.replaceState(window.history.state, '', `/search${params.toString() ? `?${params}` : ''}`)
   }
 
   function handleInput(value) {

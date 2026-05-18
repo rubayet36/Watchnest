@@ -13,6 +13,8 @@ import { CardSkeleton, LoadingSpinner } from '@/components/ui/LoadingSpinner'
 
 const FEED_GENRE_KEY = 'feed_genre'
 const FEED_GENRE_EVENT = 'watchnest-feed-genre'
+const FEED_TYPE_KEY = 'feed_type'
+const FEED_TYPE_EVENT = 'watchnest-feed-type'
 
 function getFeedGenreSnapshot() {
   if (typeof window === 'undefined') return null
@@ -33,6 +35,25 @@ function subscribeToFeedGenre(callback) {
   }
 }
 
+function getFeedTypeSnapshot() {
+  if (typeof window === 'undefined') return null
+  return window.sessionStorage.getItem(FEED_TYPE_KEY) || null
+}
+
+function getFeedTypeServerSnapshot() {
+  return null
+}
+
+function subscribeToFeedType(callback) {
+  if (typeof window === 'undefined') return () => {}
+  window.addEventListener(FEED_TYPE_EVENT, callback)
+  window.addEventListener('storage', callback)
+  return () => {
+    window.removeEventListener(FEED_TYPE_EVENT, callback)
+    window.removeEventListener('storage', callback)
+  }
+}
+
 export default function HomePage() {
   const { user } = useAuth()
   const activeGenre = useSyncExternalStore(
@@ -40,11 +61,22 @@ export default function HomePage() {
     getFeedGenreSnapshot,
     getFeedGenreServerSnapshot
   )
+  const activeType = useSyncExternalStore(
+    subscribeToFeedType,
+    getFeedTypeSnapshot,
+    getFeedTypeServerSnapshot
+  )
 
   const setActiveGenre = (genre) => {
     if (genre) sessionStorage.setItem(FEED_GENRE_KEY, genre)
     else sessionStorage.removeItem(FEED_GENRE_KEY)
     window.dispatchEvent(new Event(FEED_GENRE_EVENT))
+  }
+
+  const setActiveType = (type) => {
+    if (type) sessionStorage.setItem(FEED_TYPE_KEY, type)
+    else sessionStorage.removeItem(FEED_TYPE_KEY)
+    window.dispatchEvent(new Event(FEED_TYPE_EVENT))
   }
 
   const {
@@ -54,7 +86,7 @@ export default function HomePage() {
     isFetchingNextPage,
     isLoading,
     isError,
-  } = useFeed({ genreFilter: activeGenre })
+  } = useFeed({ genreFilter: activeGenre, mediaFilter: activeType })
 
   const sentinelRef = useInfiniteScroll(fetchNextPage, hasNextPage, isFetchingNextPage)
   const posts = useMemo(() => {
@@ -79,7 +111,7 @@ export default function HomePage() {
         <div className="feed-hero-metrics" aria-label="Feed overview">
           <div>
             <span>Mode</span>
-            <strong>{activeGenre || 'All'}</strong>
+            <strong>{activeType || activeGenre || 'All'}</strong>
           </div>
           <div>
             <span>Loaded</span>
@@ -94,13 +126,13 @@ export default function HomePage() {
             <Sparkles size={16} />
             <span>Browse by genre</span>
           </div>
-          {activeGenre && (
-            <button type="button" className="feed-clear-filter" onClick={() => setActiveGenre(null)}>
+          {(activeGenre || activeType) && (
+            <button type="button" className="feed-clear-filter" onClick={() => { setActiveGenre(null); setActiveType(null) }}>
               Clear
             </button>
           )}
         </div>
-        <FeedFilters activeGenre={activeGenre} onGenreChange={setActiveGenre} />
+        <FeedFilters activeGenre={activeGenre} activeType={activeType} onGenreChange={setActiveGenre} onTypeChange={setActiveType} />
       </section>
 
       <OfflineDraftsTray />
@@ -118,10 +150,10 @@ export default function HomePage() {
       ) : posts.length === 0 ? (
         <section className="home-state feed-state glass-panel">
           <Film size={36} />
-          <h2>{activeGenre ? `No ${activeGenre} picks yet` : 'Your nest is empty'}</h2>
+          <h2>{activeGenre || activeType ? 'No matching picks yet' : 'Your nest is empty'}</h2>
           <p>
-            {activeGenre
-              ? `No one has shared a ${activeGenre} title yet.`
+            {activeGenre || activeType
+              ? 'No one has shared a title for this filter yet.'
               : 'Add a title or invite a movie partner to start filling the feed.'}
           </p>
           <div className="home-state-actions">

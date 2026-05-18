@@ -1,13 +1,13 @@
-import { createClient } from '@/lib/supabase/server'
+import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 
-export const runtime = 'edge'
+// NOTE: No edge runtime — needs Node.js so cookies() can be set on the response.
+// Edge runtime's cookieStore.set() silently fails, breaking the PKCE code exchange.
 
 export async function GET(request) {
   const url = new URL(request.url)
-  const searchParams = url.searchParams
-  const code = searchParams.get('code')
-  const next = searchParams.get('next') ?? '/'
+  const code = url.searchParams.get('code')
+  const next = url.searchParams.get('next') ?? '/'
 
   // Netlify's internal router sometimes rewrites request.url to the raw .netlify.app domain.
   // Prefer forwarded headers only when they are present; locally, request.url already has
@@ -19,11 +19,32 @@ export async function GET(request) {
     : url.origin
 
   if (code) {
-    const supabase = await createClient()
+    // Build the success redirect response FIRST so Supabase can attach
+    // session cookies directly to it (not via next/headers which is broken on Edge).
+    const response = NextResponse.redirect(`${origin}${next}`)
+
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      {
+        cookies: {
+          getAll() {
+            return request.cookies.getAll()
+          },
+          setAll(cookiesToSet) {
+            // Write auth tokens onto the redirect response headers
+            cookiesToSet.forEach(({ name, value, options }) =>
+              response.cookies.set(name, value, options)
+            )
+          },
+        },
+      }
+    )
+
     const { data, error } = await supabase.auth.exchangeCodeForSession(code)
 
     if (!error && data?.user) {
-      // Upsert profile from Google data
+      // Upsert profile from provider metadata.
       await supabase.from('profiles').upsert({
         id: data.user.id,
         email: data.user.email,
@@ -32,17 +53,13 @@ export async function GET(request) {
         username: data.user.email?.split('@')[0],
       }, { onConflict: 'id', ignoreDuplicates: false })
 
-      return NextResponse.redirect(`${origin}${next}`)
+      return response
     }
 
-    // Exchange failed — log the error but still try to redirect home
-    // The client-side onAuthStateChange may still recover the session
     console.error('[auth/callback] code exchange error:', error?.message)
   }
 
-  // No code param = implicit flow — token is in the URL hash.
-  // The server can't read URL hashes, so redirect to the home page.
-  // The client-side onAuthStateChange in AuthContext will pick up the
-  // session automatically from the hash fragment.
+  // No code param or exchange failed — go home and let the client
+  // recover via onAuthStateChange if possible.
   return NextResponse.redirect(`${origin}/`)
 }

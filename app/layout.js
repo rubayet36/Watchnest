@@ -59,7 +59,14 @@ const themeInitScript = `
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" className={`${geist.variable} ${gambarino.variable}`} data-theme="dark" style={{ colorScheme: 'dark' }} suppressHydrationWarning>
+    <html
+      lang="en"
+      className={`${geist.variable} ${gambarino.variable}`}
+      data-theme="dark"
+      data-scroll-behavior="smooth"
+      style={{ colorScheme: 'dark' }}
+      suppressHydrationWarning
+    >
       <head>
         <link rel="preconnect" href="https://image.tmdb.org" />
         <Script id="watchnest-theme-init" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: themeInitScript }} />
