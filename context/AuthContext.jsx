@@ -8,6 +8,16 @@ import { authFetch } from '@/lib/auth-fetch'
 const AuthContext = createContext({})
 const profileEnsureRequests = new Map()
 
+function normalizeProfile(profile, authUser) {
+  if (!profile) return null
+  return {
+    ...profile,
+    email: profile.email || authUser.email,
+    account_type: profile.account_type || 'user',
+    approved: profile.account_type === 'admin' || Boolean(profile.approved),
+  }
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
@@ -40,11 +50,23 @@ export function AuthProvider({ children }) {
         body: method === 'POST' ? JSON.stringify({ userId: authUser.id }) : undefined,
       })
       const data = res.ok ? await res.json() : null
-      return data?.profile ? { ...instant, ...data.profile } : instant
+      if (data?.profile) return { ...instant, ...normalizeProfile(data.profile, authUser) }
     } catch {
       if (method === 'POST') profileEnsureRequests.delete(authUser.id)
-      return instant
     }
+
+    try {
+      const supabase = createClient()
+      const { data: directProfile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', authUser.id)
+        .single()
+
+      if (directProfile) return { ...instant, ...normalizeProfile(directProfile, authUser) }
+    } catch {}
+
+    return instant
   }, [])
 
   useEffect(() => {
