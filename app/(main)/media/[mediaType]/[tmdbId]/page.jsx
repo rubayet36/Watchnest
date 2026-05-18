@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { getMovieDetails, getPosterUrl, getBackdropUrl, getProviderLogoUrl } from '@/lib/tmdb'
 import Image from 'next/image'
 import Link from 'next/link'
-import { ChevronDown, ChevronLeft, Play, ShieldAlert, ShoppingBag, Star, Tv, X } from 'lucide-react'
+import { ChevronDown, ChevronLeft, MonitorPlay, Play, ShieldAlert, ShoppingBag, Star, Tv, X } from 'lucide-react'
 import { LoadingSpinner, EmptyState, CardSkeleton } from '@/components/ui/LoadingSpinner'
 import Avatar from '@/components/ui/Avatar'
 import { getCategoryById, timeAgo, REACTIONS } from '@/lib/utils'
@@ -278,8 +278,6 @@ export default function MediaDetailPage({ params }) {
   const cast     = movie.credits?.cast?.slice(0, 10) || []
   const primaryGenre = movie.genres?.[0]?.name
   const rating = movie.vote_average?.toFixed(1)
-  const watchProviders = movie['watch/providers']?.results?.[WATCH_REGION]
-  const hasWatchOptions = Boolean(watchProviders?.flatrate?.length || watchProviders?.rent?.length || watchProviders?.buy?.length || watchProviders?.link)
   
   const trailer = movie.videos?.results?.find(v => v.type === 'Trailer' && v.site === 'YouTube')
   const trailerUrl = trailer ? `https://www.youtube.com/watch?v=${trailer.key}` : null
@@ -364,21 +362,19 @@ export default function MediaDetailPage({ params }) {
                     <Play size={14} fill="#fff" /> Trailer
                   </button>
                 )}
-                {hasWatchOptions && (
-                  <button onClick={() => document.getElementById('watch-providers')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} style={{
-                    padding: '0.7rem 1.1rem', borderRadius: 99,
-                    background: 'linear-gradient(135deg, #0891b2, #06b6d4)',
-                    border: '1px solid rgba(34,211,238,0.4)',
-                    color: '#fff', fontSize: '0.8rem', fontWeight: 700,
-                    display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer',
-                    boxShadow: '0 4px 20px rgba(6,182,212,0.35)',
-                    transition: 'transform 0.2s, box-shadow 0.2s',
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.boxShadow = '0 8px 30px rgba(6,182,212,0.5)' }}
-                  onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(6,182,212,0.35)' }}>
-                    <Tv size={14} /> Watch options
-                  </button>
-                )}
+                <button onClick={() => setIsStreaming(true)} style={{
+                  padding: '0.7rem 1.25rem', borderRadius: 99,
+                  background: 'linear-gradient(135deg, #7c3aed, #a855f7)',
+                  border: '1px solid rgba(168,85,247,0.5)',
+                  color: '#fff', fontSize: '0.8rem', fontWeight: 700,
+                  display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer',
+                  boxShadow: '0 4px 20px rgba(124,58,237,0.5)',
+                  transition: 'transform 0.2s, box-shadow 0.2s',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.boxShadow = '0 8px 30px rgba(124,58,237,0.7)' }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(124,58,237,0.5)' }}>
+                  <MonitorPlay size={15} /> Stream Now
+                </button>
               </div>
             </motion.div>
           )}
