@@ -31,6 +31,52 @@ DO $$ BEGIN
       ON public.saves FOR INSERT TO authenticated
       WITH CHECK (auth.uid() = shared_by);
   END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='saves' AND policyname='Users can update own saves') THEN
+    CREATE POLICY "Users can update own saves"
+      ON public.saves FOR UPDATE TO authenticated
+      USING (auth.uid() = user_id)
+      WITH CHECK (auth.uid() = user_id);
+  END IF;
+END $$;
+
+-- ─── 2B. FOLLOWS / PARTNERS TABLE ───────────────────────────
+-- Non-destructive partner table setup. This keeps existing requests intact.
+CREATE TABLE IF NOT EXISTS public.follows (
+  id           UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  follower_id  UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  following_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  status       TEXT DEFAULT 'pending' NOT NULL CHECK (status IN ('pending', 'accepted', 'declined')),
+  created_at   TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+  UNIQUE(follower_id, following_id)
+);
+
+CREATE INDEX IF NOT EXISTS follows_follower_idx ON public.follows(follower_id);
+CREATE INDEX IF NOT EXISTS follows_following_idx ON public.follows(following_id);
+
+ALTER TABLE public.follows ENABLE ROW LEVEL SECURITY;
+
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='follows' AND policyname='Involved users can view follows') THEN
+    CREATE POLICY "Involved users can view follows"
+      ON public.follows FOR SELECT TO authenticated
+      USING (auth.uid() = follower_id OR auth.uid() = following_id);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='follows' AND policyname='Users can send requests') THEN
+    CREATE POLICY "Users can send requests"
+      ON public.follows FOR INSERT TO authenticated
+      WITH CHECK (auth.uid() = follower_id);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='follows' AND policyname='Receiver can update status') THEN
+    CREATE POLICY "Receiver can update status"
+      ON public.follows FOR UPDATE TO authenticated
+      USING (auth.uid() = following_id)
+      WITH CHECK (auth.uid() = following_id);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename='follows' AND policyname='Users can cancel own request') THEN
+    CREATE POLICY "Users can cancel own request"
+      ON public.follows FOR DELETE TO authenticated
+      USING (auth.uid() = follower_id OR auth.uid() = following_id);
+  END IF;
 END $$;
 
 

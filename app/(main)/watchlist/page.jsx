@@ -16,9 +16,23 @@ import { getCategoryById } from '@/lib/utils'
 import toast from 'react-hot-toast'
 
 // ─── Data Fetchers ──────────────────────────────────────────────
-const fetchWatchlist = () => authFetch('/api/watchlist').then(r => r.json()).then(d => d.movies || [])
-const fetchFollows   = () => authFetch('/api/follows').then(r => r.json())
-const fetchPartnerFeed = (uid) => fetch(`/api/feed?user=${uid}&page=0`).then(r => r.json()).then(d => d.posts || [])
+async function readJson(res, fallbackMessage) {
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data.error || fallbackMessage)
+  return data
+}
+
+const fetchWatchlist = async () => {
+  const data = await readJson(await authFetch('/api/watchlist'), 'Failed to load watchlist')
+  return data.movies || []
+}
+
+const fetchFollows = async () => readJson(await authFetch('/api/follows'), 'Failed to load partners')
+
+const fetchPartnerFeed = async (uid) => {
+  const data = await readJson(await fetch(`/api/feed?user=${uid}&page=0`), 'Failed to load partner feed')
+  return data.posts || []
+}
 
 // ─── Shared Styles ─────────────────────────────────────────────
 const card = {
@@ -43,25 +57,32 @@ const pill = (active, color = '#7c3aed') => ({
 // ═══════════════════════════════════════════════════════════════
 function MySavesTab() {
   const qc = useQueryClient()
-  const { data: movies, isLoading } = useQuery({ queryKey: ['watchlist'], queryFn: fetchWatchlist, staleTime: 30_000 })
+  const { user, loading: authLoading } = useAuth()
+  const watchlistKey = ['watchlist', user?.id]
+  const { data: movies, isLoading, isError, error } = useQuery({
+    queryKey: watchlistKey,
+    queryFn: fetchWatchlist,
+    enabled: Boolean(user),
+    staleTime: 30_000,
+  })
 
   const toggleWatched = useMutation({
     mutationFn: ({ save_id, watched }) =>
       authFetch('/api/saves/watched', { method: 'PATCH', body: JSON.stringify({ save_id, watched }) })
         .then(r => r.json()),
     onMutate: async ({ save_id, watched }) => {
-      await qc.cancelQueries({ queryKey: ['watchlist'] })
-      const previous = qc.getQueryData(['watchlist'])
-      qc.setQueryData(['watchlist'], (old = []) =>
+      await qc.cancelQueries({ queryKey: watchlistKey })
+      const previous = qc.getQueryData(watchlistKey)
+      qc.setQueryData(watchlistKey, (old = []) =>
         old.map(movie => movie.save_id === save_id ? { ...movie, watched } : movie)
       )
       return { previous }
     },
     onError: (e, _vars, context) => {
-      if (context?.previous) qc.setQueryData(['watchlist'], context.previous)
+      if (context?.previous) qc.setQueryData(watchlistKey, context.previous)
       toast.error(e.message)
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: ['watchlist'] }),
+    onSettled: () => qc.invalidateQueries({ queryKey: watchlistKey }),
   })
 
   const savedMovies = useMemo(() => movies || [], [movies])
@@ -69,11 +90,26 @@ function MySavesTab() {
   const watched = useMemo(() => savedMovies.filter(m => m.watched), [savedMovies])
   const sharedCount = useMemo(() => savedMovies.filter(m => m.shared_by_user).length, [savedMovies])
 
-  if (isLoading) return (
+  if (authLoading || isLoading) return (
     <div className="watchlist-stack">
       <div className="watchlist-skeleton-grid">
         <CardSkeleton/><CardSkeleton/><CardSkeleton/>
       </div>
+    </div>
+  )
+  if (!user) return (
+    <div className="watchlist-empty glass">
+      <div className="watchlist-empty-icon"><Bookmark size={28}/></div>
+      <h3>Sign in again</h3>
+      <p>Your session could not be read. Sign in again and your saved movies will come back.</p>
+      <Link href="/login" style={{ display:'inline-block', marginTop:'1.25rem', padding:'0.625rem 1.25rem', background:'linear-gradient(135deg,#7c3aed,#db2777)', borderRadius:12, color:'white', fontWeight:600, textDecoration:'none', fontSize:'0.875rem' }}>Go to login</Link>
+    </div>
+  )
+  if (isError) return (
+    <div className="watchlist-empty glass">
+      <div className="watchlist-empty-icon"><Bookmark size={28}/></div>
+      <h3>Could not load watchlist</h3>
+      <p>{error?.message || 'Please refresh and try again.'}</p>
     </div>
   )
   if (!savedMovies.length) return (
@@ -180,7 +216,12 @@ function MySavesTab() {
 function PartnersTab({ currentUserId }) {
   const qc = useQueryClient()
   const [viewingPartner, setViewingPartner] = useState(null)
-  const { data, isLoading } = useQuery({ queryKey: ['follows'], queryFn: fetchFollows, staleTime: 30_000 })
+  const { data, isLoading, isError, error } = useQuery({
+    queryKey: ['follows', currentUserId],
+    queryFn: fetchFollows,
+    enabled: Boolean(currentUserId),
+    staleTime: 30_000,
+  })
 
   const sendRequest = useMutation({
     mutationFn: (following_id) =>
@@ -206,7 +247,22 @@ function PartnersTab({ currentUserId }) {
     onError: e => toast.error(e.message),
   })
 
+  if (!currentUserId) return (
+    <div className="watchlist-empty glass">
+      <div className="watchlist-empty-icon"><Users size={28}/></div>
+      <h3>Sign in again</h3>
+      <p>Your partner list needs an active session.</p>
+    </div>
+  )
+
   if (isLoading) return <div style={{ display:'flex', justifyContent:'center', padding:'3rem' }}><LoadingSpinner size="md"/></div>
+  if (isError) return (
+    <div className="watchlist-empty glass">
+      <div className="watchlist-empty-icon"><Users size={28}/></div>
+      <h3>Could not load partners</h3>
+      <p>{error?.message || 'Please refresh and try again.'}</p>
+    </div>
+  )
 
   if (viewingPartner) {
     return <PartnerFeed partner={viewingPartner} onBack={() => setViewingPartner(null)} currentUserId={currentUserId} />
@@ -416,7 +472,12 @@ export default function WatchlistPage() {
   const [tab, setTab]  = useState('saves')
 
   // Badge: count pending received requests
-  const { data: followData } = useQuery({ queryKey: ['follows'], queryFn: fetchFollows, staleTime: 30_000 })
+  const { data: followData } = useQuery({
+    queryKey: ['follows', user?.id],
+    queryFn: fetchFollows,
+    enabled: Boolean(user),
+    staleTime: 30_000,
+  })
   const pendingCount = (followData?.received || []).filter(r => r.status === 'pending').length
 
   return (

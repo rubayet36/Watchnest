@@ -1,7 +1,7 @@
 'use client'
 
 import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 
 const PAGE_SIZE = 10
 
@@ -20,6 +20,7 @@ async function fetchFeedPage({ pageParam = 0, genreFilter, userFilter, mediaFilt
 
 export function useFeed({ genreFilter, userFilter, mediaFilter } = {}) {
   const cacheKey = `feed_cache_${genreFilter||'all'}_${userFilter||'all'}_${mediaFilter||'all'}`
+  const queryKey = useMemo(() => ['feed', genreFilter, userFilter, mediaFilter], [genreFilter, userFilter, mediaFilter])
   const queryClient = useQueryClient()
 
   // Hydration-safe cache injection
@@ -27,16 +28,17 @@ export function useFeed({ genreFilter, userFilter, mediaFilter } = {}) {
     if (typeof window !== 'undefined') {
       try {
         const cached = localStorage.getItem(cacheKey)
-        const currentData = queryClient.getQueryData(['feed', genreFilter, userFilter, mediaFilter])
+        const currentData = queryClient.getQueryData(queryKey)
         if (cached && !currentData) {
-          queryClient.setQueryData(['feed', genreFilter, userFilter, mediaFilter], { pages: [JSON.parse(cached)], pageParams: [0] })
+          queryClient.setQueryData(queryKey, { pages: [JSON.parse(cached)], pageParams: [0] })
+          queryClient.invalidateQueries({ queryKey })
         }
       } catch(e) {}
     }
-  }, [cacheKey, genreFilter, userFilter, mediaFilter, queryClient])
+  }, [cacheKey, queryClient, queryKey])
 
   return useInfiniteQuery({
-    queryKey:         ['feed', genreFilter, userFilter, mediaFilter],
+    queryKey,
     queryFn:          async ({ pageParam }) => {
       const data = await fetchFeedPage({ pageParam, genreFilter, userFilter, mediaFilter })
       // Cache the first page to localStorage for instant load on refresh

@@ -91,12 +91,14 @@ export default function HomePage() {
   const sentinelRef = useInfiniteScroll(fetchNextPage, hasNextPage, isFetchingNextPage)
   const posts = useMemo(() => {
     const seen = new Set()
-    return (data?.pages.flatMap((p) => p.posts) ?? []).filter((post) => {
-      const key = post?.id || `${post?.media_type || 'movie'}-${post?.tmdb_id}-${post?.user_id || 'unknown'}`
-      if (seen.has(key)) return false
-      seen.add(key)
-      return true
-    })
+    return (data?.pages.flatMap((p) => p.posts) ?? [])
+      .filter((post) => {
+        const key = post?.id || `${post?.media_type || 'movie'}-${post?.tmdb_id}-${post?.user_id || 'unknown'}`
+        if (seen.has(key)) return false
+        seen.add(key)
+        return true
+      })
+      .sort((a, b) => new Date(b?.created_at || 0) - new Date(a?.created_at || 0))
   }, [data])
 
   return (

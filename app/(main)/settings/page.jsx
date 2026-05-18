@@ -2,19 +2,22 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Moon, Save, Sun } from 'lucide-react'
+import { Camera, Moon, Save, Sun, Trash2, Upload } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '@/context/AuthContext'
 import { useTheme } from '@/context/ThemeContext'
 import Avatar from '@/components/ui/Avatar'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import PushNotificationControl from '@/components/pwa/PushNotificationControl'
+import { createClient } from '@/lib/supabase/client'
 
 export default function SettingsPage() {
   const { user, profile, updateProfile, loading, signOut } = useAuth()
   const { theme, setTheme } = useTheme()
   const [name, setName] = useState('')
   const [bio, setBio] = useState('')
+  const [avatarUrl, setAvatarUrl] = useState('')
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
@@ -22,13 +25,74 @@ export default function SettingsPage() {
     const timer = window.setTimeout(() => {
       setName(profile.name || '')
       setBio(profile.bio || '')
+      setAvatarUrl(profile.avatar_url || '')
     }, 0)
     return () => window.clearTimeout(timer)
   }, [profile])
 
+  async function handleAvatarUpload(event) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    if (!user) {
+      toast.error('Sign in again before uploading a picture')
+      return
+    }
+
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Use a JPG, PNG, WebP, or GIF image')
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Profile picture must be under 5 MB')
+      return
+    }
+
+    setUploadingAvatar(true)
+    try {
+      const supabase = createClient()
+      const extension = file.name.split('.').pop()?.toLowerCase() || 'jpg'
+      const filePath = `${user.id}/avatar-${Date.now()}.${extension}`
+      const { error } = await supabase.storage
+        .from('profile-avatars')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          contentType: file.type,
+          upsert: false,
+        })
+
+      if (error) throw error
+
+      const { data } = supabase.storage.from('profile-avatars').getPublicUrl(filePath)
+      const nextAvatarUrl = `${data.publicUrl}?v=${Date.now()}`
+      const { error: saveError } = await updateProfile({ avatar_url: nextAvatarUrl })
+      if (saveError) throw new Error('Picture uploaded, but profile update failed')
+
+      setAvatarUrl(nextAvatarUrl)
+      toast.success('Profile picture updated')
+    } catch (error) {
+      toast.error(error.message || 'Could not upload picture')
+    } finally {
+      setUploadingAvatar(false)
+    }
+  }
+
+  async function handleAvatarRemove() {
+    setUploadingAvatar(true)
+    const { error } = await updateProfile({ avatar_url: null })
+    setUploadingAvatar(false)
+    if (error) {
+      toast.error('Could not remove picture')
+      return
+    }
+    setAvatarUrl('')
+    toast.success('Profile picture removed')
+  }
+
   async function handleSave() {
     setSaving(true)
-    const { error } = await updateProfile({ name: name.trim(), bio: bio.trim() })
+    const { error } = await updateProfile({ name: name.trim(), bio: bio.trim(), avatar_url: avatarUrl || null })
     setSaving(false)
     if (error) toast.error('Failed to save changes')
     else toast.success('Profile updated')
@@ -49,11 +113,44 @@ export default function SettingsPage() {
           {loading ? (
             <div className="settings-avatar-placeholder" />
           ) : (
-            <Avatar user={profile} size={64} />
+            <Avatar user={{ ...profile, avatar_url: avatarUrl }} size={64} />
           )}
           <div>
             <p className="settings-email">{profile?.email || user?.email}</p>
-            <p className="settings-muted">Avatar synced from your account</p>
+            <p className="settings-muted">{avatarUrl ? 'Custom profile picture enabled' : 'Add a profile picture'}</p>
+          </div>
+        </div>
+
+        <div className="settings-avatar-card">
+          <div className="settings-avatar-copy">
+            <Camera size={17} />
+            <div>
+              <strong>Profile picture</strong>
+              <p>JPG, PNG, WebP, or GIF. Max 5 MB.</p>
+            </div>
+          </div>
+          <div className="settings-avatar-actions">
+            <label className="settings-avatar-upload">
+              {uploadingAvatar ? <LoadingSpinner size="sm" /> : <Upload size={15} />}
+              {uploadingAvatar ? 'Uploading...' : 'Change photo'}
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                onChange={handleAvatarUpload}
+                disabled={uploadingAvatar || saving}
+              />
+            </label>
+            {avatarUrl && (
+              <button
+                type="button"
+                onClick={handleAvatarRemove}
+                className="settings-avatar-remove"
+                disabled={uploadingAvatar || saving}
+              >
+                <Trash2 size={14} />
+                Remove
+              </button>
+            )}
           </div>
         </div>
 
@@ -160,6 +257,90 @@ export default function SettingsPage() {
           font-size: 0.78rem;
         }
 
+        .settings-avatar-card {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 1rem;
+          padding: 0.9rem;
+          border: 1px solid var(--control-border);
+          border-radius: 18px;
+          background: var(--surface-row-bg);
+        }
+
+        .settings-avatar-copy {
+          display: flex;
+          align-items: center;
+          gap: 0.75rem;
+          min-width: 0;
+        }
+
+        .settings-avatar-copy svg {
+          color: var(--accent);
+          flex-shrink: 0;
+        }
+
+        .settings-avatar-copy strong {
+          display: block;
+          color: var(--text);
+          font-size: 0.9rem;
+        }
+
+        .settings-avatar-copy p {
+          margin: 0.18rem 0 0;
+          color: var(--muted);
+          font-size: 0.76rem;
+          line-height: 1.35;
+        }
+
+        .settings-avatar-actions {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          flex-shrink: 0;
+        }
+
+        .settings-avatar-upload,
+        .settings-avatar-remove {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.4rem;
+          min-height: 36px;
+          padding: 0 0.85rem;
+          border-radius: 999px;
+          cursor: pointer;
+          font: inherit;
+          font-size: 0.8rem;
+          font-weight: 800;
+        }
+
+        .settings-avatar-upload {
+          border: 1px solid var(--accent-soft);
+          background: var(--control-bg);
+          color: var(--text);
+        }
+
+        .settings-avatar-upload input {
+          position: absolute;
+          width: 1px;
+          height: 1px;
+          opacity: 0;
+          pointer-events: none;
+        }
+
+        .settings-avatar-remove {
+          border: 1px solid rgba(244, 63, 94, 0.26);
+          background: rgba(244, 63, 94, 0.08);
+          color: #fb7185;
+        }
+
+        .settings-avatar-upload:has(input:disabled),
+        .settings-avatar-remove:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
         .settings-divider {
           height: 1px;
           background: var(--control-border);
@@ -214,6 +395,16 @@ export default function SettingsPage() {
         }
 
         @media (max-width: 520px) {
+          .settings-avatar-card {
+            align-items: stretch;
+            flex-direction: column;
+          }
+
+          .settings-avatar-actions {
+            display: grid;
+            grid-template-columns: 1fr;
+          }
+
           .push-control {
             grid-template-columns: auto minmax(0, 1fr);
           }

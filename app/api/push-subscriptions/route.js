@@ -1,4 +1,4 @@
-export const runtime = 'edge'
+export const runtime = 'nodejs'
 
 import { getAuthFromHeader, unauthorized } from '@/lib/api-auth'
 import { NextResponse } from 'next/server'

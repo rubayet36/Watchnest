@@ -1,4 +1,4 @@
-export const runtime = 'edge'
+export const runtime = 'nodejs'
 
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'

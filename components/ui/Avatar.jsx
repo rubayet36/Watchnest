@@ -1,8 +1,11 @@
 'use client'
+import { useState } from 'react'
 import Image from 'next/image'
 import { getInitials } from '@/lib/utils'
 
 export default function Avatar({ user, size = 40 }) {
+  const avatarUrl = user?.avatar_url || ''
+  const [failedSrc, setFailedSrc] = useState('')
   const initials = getInitials(user?.name || user?.email || '?')
   const fontSize = size < 32 ? 10 : size < 48 ? 12 : size < 64 ? 14 : 16
 
@@ -12,12 +15,14 @@ export default function Avatar({ user, size = 40 }) {
     position: 'relative', overflow: 'hidden',
   }
 
-  if (user?.avatar_url) {
+  if (avatarUrl && failedSrc !== avatarUrl) {
     return (
       <div style={base}>
         <Image
-          src={user.avatar_url} alt={user.name || 'User'}
+          src={avatarUrl} alt={user.name || 'User'}
           fill sizes={`${size}px`} style={{ objectFit: 'cover' }}
+          unoptimized
+          onError={() => setFailedSrc(avatarUrl)}
         />
       </div>
     )

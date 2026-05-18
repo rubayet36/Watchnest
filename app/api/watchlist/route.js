@@ -1,40 +1,13 @@
-export const runtime = 'edge'
+export const runtime = 'nodejs'
 
 import { getAuthFromHeader } from '@/lib/api-auth'
-import { createServerClient } from '@supabase/ssr'
-import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 
 export async function GET(request) {
   try {
-    let supabase, user
+    const { supabase, user } = await getAuthFromHeader(request)
 
-    // Try token auth first (from Authorization header)
-    const token = request.headers.get('Authorization')?.replace('Bearer ', '').trim()
-    if (token) {
-      const { createClient } = await import('@supabase/supabase-js')
-      supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-        { global: { headers: { Authorization: `Bearer ${token}` } } }
-      )
-      const res = await supabase.auth.getUser(token)
-      user = res?.data?.user
-    }
-
-    // Fallback to cookie auth
-    if (!user) {
-      const cookieStore = await cookies()
-      supabase = createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-        { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
-      )
-      const res = await supabase.auth.getUser()
-      user = res?.data?.user
-    }
-
-    if (!user) return NextResponse.json({ movies: [] })
+    if (!user || !supabase) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
     const { data, error } = await supabase
       .from('saves')
