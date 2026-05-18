@@ -1,6 +1,9 @@
-export const runtime = 'edge'
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
 
 import { createClient } from '@supabase/supabase-js'
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { getAuthFromHeader, unauthorized } from '@/lib/api-auth'
 
@@ -22,12 +25,41 @@ async function withTimeout(promise, message, timeoutMs = 8_000) {
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer))
 }
 
+async function getUserFromRequest(request) {
+  const hasBearer = Boolean(request.headers.get('Authorization')?.startsWith('Bearer '))
+  if (hasBearer) {
+    const { user } = await getAuthFromHeader(request)
+    if (user) return user
+  }
+
+  const cookieStore = await cookies()
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
+  )
+
+  const { data, error } = await withTimeout(
+    supabase.auth.getUser(),
+    'Cookie auth check timed out',
+    5_000
+  )
+
+  if (error || !data?.user) return null
+  return data.user
+}
+
 async function requireAdmin(request) {
-  const { supabase, user } = await getAuthFromHeader(request)
+  const user = await getUserFromRequest(request)
   if (!user) return { error: unauthorized() }
 
+  const admin = getAdminClient()
+  if (!admin) {
+    return { error: NextResponse.json({ error: 'SUPABASE_SERVICE_ROLE_KEY is not configured' }, { status: 500 }) }
+  }
+
   const { data: profile, error } = await withTimeout(
-    supabase
+    admin
       .from('profiles')
       .select('id, account_type')
       .eq('id', user.id)
@@ -37,11 +69,6 @@ async function requireAdmin(request) {
 
   if (error || profile?.account_type !== 'admin') {
     return { error: NextResponse.json({ error: 'Admin access required' }, { status: 403 }) }
-  }
-
-  const admin = getAdminClient()
-  if (!admin) {
-    return { error: NextResponse.json({ error: 'SUPABASE_SERVICE_ROLE_KEY is not configured' }, { status: 500 }) }
   }
 
   return { admin, user }
@@ -62,7 +89,11 @@ export async function GET(request) {
     )
 
     if (error) throw error
-    return NextResponse.json({ users: data || [] })
+    return NextResponse.json({
+      users: data || [],
+      total: data?.length || 0,
+      pending: data?.filter(user => user.account_type !== 'admin' && !user.approved).length || 0,
+    })
   } catch (e) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }

@@ -2,16 +2,26 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { CheckCircle, ShieldCheck, UserCheck, UserX } from 'lucide-react'
-import { authFetch } from '@/lib/auth-fetch'
 import Avatar from '@/components/ui/Avatar'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
+
+function withTimeout(promise, message, timeoutMs = 8_000) {
+  let timer
+  const timeout = new Promise((_, reject) => {
+    timer = window.setTimeout(() => reject(new Error(message)), timeoutMs)
+  })
+  return Promise.race([promise, timeout]).finally(() => window.clearTimeout(timer))
+}
 
 async function fetchAdminUsers() {
   const controller = new AbortController()
   const timer = window.setTimeout(() => controller.abort(), 8_000)
 
   try {
-    const res = await authFetch('/api/admin/users', { signal: controller.signal, timeoutMs: 8_000 })
+    const res = await withTimeout(
+      fetch('/api/admin/users', { signal: controller.signal }),
+      'Approval queue request timed out'
+    )
     window.clearTimeout(timer)
 
     const data = await res.json()
@@ -26,7 +36,7 @@ async function fetchAdminUsers() {
 
 export default function AdminApprovalPanel() {
   const queryClient = useQueryClient()
-  const { data: users = [], isLoading, isError, error } = useQuery({
+  const { data: users = [], isLoading, isError, error, refetch } = useQuery({
     queryKey: ['admin-users'],
     queryFn: fetchAdminUsers,
     retry: false,
@@ -35,10 +45,16 @@ export default function AdminApprovalPanel() {
 
   const approveUser = useMutation({
     mutationFn: async ({ userId, approved }) => {
-      const res = await authFetch('/api/admin/users', {
-        method: 'PATCH',
-        body: JSON.stringify({ userId, approved }),
-      })
+      const res = await withTimeout(
+        fetch('/api/admin/users', {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ userId, approved }),
+        }),
+        'Approval update timed out'
+      )
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed to update user')
       return data.user
@@ -63,7 +79,12 @@ export default function AdminApprovalPanel() {
       {isLoading ? (
         <div className="admin-approval-state"><LoadingSpinner size="md" /><span>Loading approval queue...</span></div>
       ) : isError ? (
-        <div className="admin-approval-state">{error?.message || 'Could not load approval queue.'}</div>
+        <div className="admin-approval-state">
+          {error?.message || 'Could not load approval queue.'}
+          <button type="button" className="admin-approval-action" onClick={() => refetch()}>
+            Try again
+          </button>
+        </div>
       ) : (
         <div className="admin-approval-list">
           {visibleUsers.map(user => {

@@ -41,7 +41,7 @@ export default function ProfilePage({ params }) {
   const displayProfile = isOwnProfile
     ? { ...(profile || {}), ...(myProfile || {}) }
     : profile
-  const isAdminProfile = isOwnProfile && (
+  const isAdminProfile = (
     myProfile?.account_type === 'admin' ||
     profile?.account_type === 'admin' ||
     displayProfile?.account_type === 'admin'
