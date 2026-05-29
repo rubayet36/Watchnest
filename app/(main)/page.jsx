@@ -16,7 +16,7 @@ import { useDirectWatchlist } from '@/hooks/useReactions'
 import { useAuth } from '@/context/AuthContext'
 import { authFetch } from '@/lib/auth-fetch'
 
-const AddMovieModal = dynamic(() => import('@/components/movie/AddMovieModal'), { ssr: false })
+
 
 // ── Nest: search by query ─────────────────────────────────────
 async function searchNest(term) {
@@ -31,7 +31,7 @@ async function fetchTrending() {
 }
 
 // ── Shared result row renderer ────────────────────────────────
-function ResultRow({ movie, searchMode, index, onAdd, watchlist }) {
+function ResultRow({ movie, searchMode, index, watchlist }) {
   const { toggleDirect, isDirectToggling } = useDirectWatchlist()
   
   let isAnime = false
@@ -67,7 +67,7 @@ function ResultRow({ movie, searchMode, index, onAdd, watchlist }) {
       >
         <div className="surface-row" style={{
           display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.875rem',
-          paddingRight: searchMode === 'tmdb' ? '6.25rem' : '0.875rem',
+          paddingRight: searchMode === 'tmdb' ? '3.5rem' : '0.875rem',
         }}
         >
           {/* Poster */}
@@ -160,28 +160,13 @@ function ResultRow({ movie, searchMode, index, onAdd, watchlist }) {
             )}
           </button>
 
-          {/* Add to Nest button */}
-          <button
-            onClick={e => { e.preventDefault(); e.stopPropagation(); onAdd(movie) }}
-            title="Add to WatchNest with Details"
-            style={{
-              width: 36, height: 36, borderRadius: 10, border: 'none', cursor: 'pointer',
-              background: 'linear-gradient(135deg,#7c3aed,#db2777)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 4px 16px rgba(124,58,237,0.45)', transition: 'all .2s ease', flexShrink: 0,
-            }}
-            onMouseEnter={e => { e.currentTarget.style.transform='scale(1.12)'; e.currentTarget.style.boxShadow='0 6px 22px rgba(124,58,237,0.65)' }}
-            onMouseLeave={e => { e.currentTarget.style.transform='scale(1)'; e.currentTarget.style.boxShadow='0 4px 16px rgba(124,58,237,0.45)' }}
-          >
-            <Plus size={18} color="white" />
-          </button>
         </div>
       )}
     </motion.div>
   )
 }
 
-function NetflixDiscovery({ watchlist, onAdd }) {
+function NetflixDiscovery({ watchlist }) {
   const { toggleDirect, isDirectToggling } = useDirectWatchlist()
   const [heroIndex, setHeroIndex] = useState(0)
 
@@ -264,59 +249,19 @@ function NetflixDiscovery({ watchlist, onAdd }) {
   function NetflixCard({ movie }) {
     const targetId = String(movie.id || movie.tmdb_id)
     const targetType = movie.media_type || 'movie'
-    const isSaved = watchlist?.some(
-      m => String(m.tmdb_id) === targetId && String(m.media_type) === targetType
-    )
 
     return (
-      <div
+      <Link
+        href={`/media/${targetType}/${targetId}`}
         className="netflix-card"
         style={{
           width: 110, flexShrink: 0, position: 'relative', borderRadius: 12,
           overflow: 'hidden', cursor: 'pointer', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-          aspectRatio: '2/3', background: '#1c1c2e'
+          aspectRatio: '2/3', background: '#1c1c2e', display: 'block'
         }}
       >
-        <Link href={`/media/${targetType}/${targetId}`} style={{ display: 'block', width: '100%', height: '100%' }}>
-          <PosterImage src={getPosterUrl(movie.poster_path)} alt={movie.title || movie.name} fill sizes="110px" style={{ objectFit: 'cover' }} />
-        </Link>
-        
-        {/* Quick Hover Controls Overlay */}
-        <div className="netflix-card-overlay" style={{
-          position: 'absolute', inset: 0, background: 'rgba(9,9,14,0.85)',
-          opacity: 0, display: 'flex', flexDirection: 'column',
-          alignItems: 'center', justifyContent: 'center', gap: '10px',
-          transition: 'all 0.25s ease', zIndex: 10
-        }}>
-          {/* Direct watchlist toggle button */}
-          <button
-            onClick={e => { e.preventDefault(); e.stopPropagation(); toggleDirect(movie) }}
-            disabled={isDirectToggling}
-            style={{
-              width: 32, height: 32, borderRadius: '50%', border: 'none', cursor: 'pointer',
-              background: isSaved ? 'linear-gradient(135deg,#10b981,#06b6d4)' : 'rgba(255,255,255,0.15)',
-              color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: isSaved ? '0 4px 12px rgba(16,185,129,0.45)' : 'none',
-              transition: 'all 0.2s'
-            }}
-          >
-            {isSaved ? <BookmarkCheck size={14} /> : <Bookmark size={14} />}
-          </button>
-          
-          {/* Add with details button */}
-          <button
-            onClick={e => { e.preventDefault(); e.stopPropagation(); onAdd(movie) }}
-            style={{
-              width: 32, height: 32, borderRadius: '50%', border: 'none', cursor: 'pointer',
-              background: 'linear-gradient(135deg,#7c3aed,#db2777)',
-              color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              transition: 'all 0.2s'
-            }}
-          >
-            <Plus size={14} />
-          </button>
-        </div>
-      </div>
+        <PosterImage src={getPosterUrl(movie.poster_path)} alt={movie.title || movie.name} fill sizes="110px" style={{ objectFit: 'cover' }} />
+      </Link>
     )
   }
 
@@ -326,9 +271,6 @@ function NetflixDiscovery({ watchlist, onAdd }) {
         .netflix-card:hover {
           transform: scale(1.08) translateY(-4px);
           box-shadow: 0 10px 22px rgba(0,0,0,0.6), 0 4px 12px rgba(124,58,237,0.3);
-        }
-        .netflix-card:hover .netflix-card-overlay {
-          opacity: 1 !important;
         }
         .netflix-row-scroller::-webkit-scrollbar {
           height: 6px;
@@ -342,6 +284,7 @@ function NetflixDiscovery({ watchlist, onAdd }) {
         }
         .netflix-row-scroller::-webkit-scrollbar-thumb:hover {
           background: rgba(255,255,255,0.15);
+          border-radius: 99px;
         }
       `}</style>
 
@@ -474,7 +417,6 @@ function SearchContent() {
   const initialQuery = searchParams.get('q') || ''
 
   const [input, setInput] = useState(initialQuery)
-  const [addingMovie, setAddingMovie] = useState(null)
 
   const { data: watchlist } = useQuery({
     queryKey: ['watchlist', user?.id],
@@ -567,7 +509,7 @@ function SearchContent() {
       </div>
 
       {!isTyping ? (
-        <NetflixDiscovery watchlist={watchlist} onAdd={setAddingMovie} />
+        <NetflixDiscovery watchlist={watchlist} />
       ) : (
         <>
           {/* Section heading */}
@@ -607,7 +549,6 @@ function SearchContent() {
                   movie={movie}
                   searchMode="tmdb"
                   index={i}
-                  onAdd={setAddingMovie}
                   watchlist={watchlist}
                 />
               ))}
@@ -616,15 +557,6 @@ function SearchContent() {
         </>
       )}
 
-      {/* Quick-add modal */}
-      <AnimatePresence>
-        {addingMovie && (
-          <AddMovieModal
-            initialMovie={addingMovie}
-            onClose={() => setAddingMovie(null)}
-          />
-        )}
-      </AnimatePresence>
     </div>
   )
 }

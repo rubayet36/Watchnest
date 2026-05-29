@@ -5,13 +5,19 @@ import { useQuery } from '@tanstack/react-query'
 import { getMovieDetails, getPosterUrl, getBackdropUrl, getProviderLogoUrl, getRecommendations } from '@/lib/tmdb'
 import Image from 'next/image'
 import Link from 'next/link'
-import { ChevronDown, ChevronLeft, MonitorPlay, Play, ShieldAlert, ShoppingBag, Star, Tv, X, Calendar, Film, Globe, Users, Heart, Info } from 'lucide-react'
+import { ChevronDown, ChevronLeft, MonitorPlay, Play, ShieldAlert, ShoppingBag, Star, Tv, X, Calendar, Film, Globe, Users, Heart, Info, Bookmark, BookmarkCheck } from 'lucide-react'
+import { Plus } from 'lucide-react'
 import { LoadingSpinner, EmptyState, CardSkeleton } from '@/components/ui/LoadingSpinner'
 import Avatar from '@/components/ui/Avatar'
 import { getCategoryById, timeAgo, REACTIONS } from '@/lib/utils'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useAuth } from '@/context/AuthContext'
 import { useRouter } from 'next/navigation'
+import { useDirectWatchlist } from '@/hooks/useReactions'
+import { authFetch } from '@/lib/auth-fetch'
+import dynamic from 'next/dynamic'
+
+const AddMovieModal = dynamic(() => import('@/components/movie/AddMovieModal'), { ssr: false })
 
 async function fetchMoviePosts(tmdbId, mediaType) {
   const res = await fetch(`/api/feed?tmdb=${tmdbId}&media=${mediaType}&page=0`)
@@ -254,6 +260,7 @@ export default function MediaDetailPage({ params }) {
   const [isStreaming, setIsStreaming] = useState(false)
   const [activeTab, setActiveTab] = useState('overview')
   const [selectedVideoKey, setSelectedVideoKey] = useState(null)
+  const [showAddModal, setShowAddModal] = useState(false)
 
   const { data: movie, isLoading: movieLoading } = useQuery({
     queryKey: ['media', mediaType, tmdbId],
@@ -266,6 +273,31 @@ export default function MediaDetailPage({ params }) {
     queryFn: () => fetchMoviePosts(tmdbId, mediaType),
     staleTime: 30_000,
   })
+
+  const { toggleDirect, isDirectToggling } = useDirectWatchlist()
+
+  const { data: watchlist } = useQuery({
+    queryKey: ['watchlist', user?.id],
+    queryFn: async () => {
+      const res = await authFetch('/api/watchlist')
+      const json = await res.json()
+      return json.movies || []
+    },
+    enabled: Boolean(user),
+    staleTime: 30_000,
+  })
+
+  const isSaved = watchlist?.some(
+    m => String(m.tmdb_id) === String(tmdbId) && String(m.media_type) === String(mediaType)
+  )
+
+  const movieForModal = useMemo(() => {
+    if (!movie) return null
+    return {
+      ...movie,
+      genre_ids: movie.genres?.map(g => g.id) || []
+    }
+  }, [movie])
 
   const primaryGenreId = movie?.genres?.[0]?.id
 
@@ -408,7 +440,7 @@ export default function MediaDetailPage({ params }) {
 
               <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 60%)' }} />
 
-              <div style={{ position: 'absolute', bottom: '1.25rem', left: '1.25rem', right: '1.25rem', display: 'flex', gap: '0.625rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+              <div style={{ position: 'absolute', bottom: '1.25rem', left: '1.25rem', right: '1.25rem', display: 'flex', gap: '0.625rem', justifyContent: 'flex-end', flexWrap: 'wrap', zIndex: 20 }}>
                 {trailerUrl && (
                   <button onClick={() => { setActiveTab('videos'); const el = document.getElementById('media-tabs'); el?.scrollIntoView({ behavior: 'smooth' }) }} style={{
                     padding: '0.7rem 1.1rem', borderRadius: 99,
@@ -423,17 +455,76 @@ export default function MediaDetailPage({ params }) {
                     <Play size={14} fill="#fff" /> View Trailers
                   </button>
                 )}
+                
+                <button
+                  onClick={() => toggleDirect(movie)}
+                  disabled={isDirectToggling}
+                  style={{
+                    padding: '0.7rem 1.15rem', borderRadius: 99,
+                    background: isSaved 
+                      ? 'linear-gradient(135deg, #10b981, #06b6d4)' 
+                      : 'rgba(0,0,0,0.6)',
+                    backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
+                    border: isSaved ? 'none' : '1px solid rgba(255,255,255,0.2)',
+                    color: '#fff', fontSize: '0.8rem', fontWeight: 800,
+                    display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer',
+                    boxShadow: isSaved ? '0 4px 16px rgba(16,185,129,0.45)' : 'none',
+                    transition: 'all 0.2s',
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.transform = 'scale(1.05)';
+                    if (isSaved) {
+                      e.currentTarget.style.boxShadow = '0 6px 20px rgba(16,185,129,0.6)';
+                    } else {
+                      e.currentTarget.style.background = 'rgba(0,0,0,0.8)';
+                    }
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.transform = 'scale(1)';
+                    if (isSaved) {
+                      e.currentTarget.style.boxShadow = '0 4px 16px rgba(16,185,129,0.45)';
+                    } else {
+                      e.currentTarget.style.background = 'rgba(0,0,0,0.6)';
+                    }
+                  }}
+                >
+                  {isDirectToggling ? (
+                    <LoadingSpinner size="sm" />
+                  ) : isSaved ? (
+                    <><BookmarkCheck size={14} fill="#fff" /> Watchlisted</>
+                  ) : (
+                    <><Bookmark size={14} /> + Watchlist</>
+                  )}
+                </button>
+
+                <button
+                  onClick={() => setShowAddModal(true)}
+                  style={{
+                    padding: '0.7rem 1.25rem', borderRadius: 99,
+                    background: 'linear-gradient(135deg, #7c3aed, #db2777)',
+                    border: 'none',
+                    color: '#fff', fontSize: '0.8rem', fontWeight: 800,
+                    display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer',
+                    boxShadow: '0 4px 16px rgba(124,58,237,0.45)',
+                    transition: 'all 0.2s',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(124,58,237,0.65)' }}
+                  onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(124,58,237,0.45)' }}
+                >
+                  <Plus size={15} /> Add Post
+                </button>
+
                 <button onClick={() => setIsStreaming(true)} style={{
                   padding: '0.7rem 1.25rem', borderRadius: 99,
-                  background: 'linear-gradient(135deg, #7c3aed, #a855f7)',
-                  border: '1px solid rgba(168,85,247,0.5)',
+                  background: 'linear-gradient(135deg, #06b6d4, #3b82f6)',
+                  border: '1px solid rgba(6,182,212,0.4)',
                   color: '#fff', fontSize: '0.8rem', fontWeight: 700,
                   display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer',
-                  boxShadow: '0 4px 20px rgba(124,58,237,0.5)',
+                  boxShadow: '0 4px 20px rgba(6,182,212,0.4)',
                   transition: 'transform 0.2s, box-shadow 0.2s',
                 }}
-                onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.boxShadow = '0 8px 30px rgba(124,58,237,0.7)' }}
-                onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(124,58,237,0.5)' }}>
+                onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.boxShadow = '0 8px 30px rgba(6,182,212,0.6)' }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(6,182,212,0.4)' }}>
                   <MonitorPlay size={15} /> Stream Now
                 </button>
               </div>
@@ -899,6 +990,17 @@ export default function MediaDetailPage({ params }) {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Quick-add modal */}
+        <AnimatePresence>
+          {showAddModal && movieForModal && (
+            <AddMovieModal
+              initialMovie={movieForModal}
+              onClose={() => setShowAddModal(false)}
+            />
+          )}
+        </AnimatePresence>
+
       </div>
 
       <style>{`
