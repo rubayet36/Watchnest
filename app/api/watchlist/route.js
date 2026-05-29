@@ -20,7 +20,8 @@ export async function GET(request) {
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
 
-    if (result.error && (result.error.message?.includes('watch_status') || result.error.code === 'PGRST100' || result.error.message?.includes('column'))) {
+    if (result.error) {
+      // Fallback 1: Try querying without watch_status
       result = await supabase
         .from('saves')
         .select(`
@@ -31,6 +32,20 @@ export async function GET(request) {
         `)
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
+
+      if (result.error) {
+        // Fallback 2: Ultimate fallback without watched or watch_status
+        result = await supabase
+          .from('saves')
+          .select(`
+            id, created_at,
+            shared_by (id, name, avatar_url),
+            posts(id, tmdb_id, title, poster_path, genres, tmdb_rating, release_year, category, personal_note, media_type,
+              profiles:user_id(id, name, avatar_url, username))
+          `)
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+      }
     }
 
     const { data, error } = result
