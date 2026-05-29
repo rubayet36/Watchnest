@@ -9,10 +9,10 @@ export async function GET(request) {
 
     if (!user || !supabase) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
-    const { data, error } = await supabase
+    let result = await supabase
       .from('saves')
       .select(`
-        id, created_at, watched,
+        id, created_at, watched, watch_status,
         shared_by (id, name, avatar_url),
         posts(id, tmdb_id, title, poster_path, genres, tmdb_rating, release_year, category, personal_note, media_type,
           profiles:user_id(id, name, avatar_url, username))
@@ -20,12 +20,27 @@ export async function GET(request) {
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
 
+    if (result.error && (result.error.message?.includes('watch_status') || result.error.code === 'PGRST100' || result.error.message?.includes('column'))) {
+      result = await supabase
+        .from('saves')
+        .select(`
+          id, created_at, watched,
+          shared_by (id, name, avatar_url),
+          posts(id, tmdb_id, title, poster_path, genres, tmdb_rating, release_year, category, personal_note, media_type,
+            profiles:user_id(id, name, avatar_url, username))
+        `)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+    }
+
+    const { data, error } = result
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
     const movies = (data || []).map(s => ({
       ...s.posts,
       save_id: s.id,
       watched: s.watched || false,
+      watch_status: s.watch_status || (s.watched ? 'watched' : 'watching'),
       saved_at: s.created_at,
       shared_by_user: s.shared_by,
     })).filter(Boolean)

@@ -20,13 +20,14 @@ export async function GET(request) {
     if (term.length < 2) {
       const { data } = await supabase
         .from('posts')
-        .select('tmdb_id, title, poster_path, tmdb_rating, release_year, genres, media_type, profiles:user_id(id, name, avatar_url)')
+        .select('tmdb_id, title, poster_path, tmdb_rating, release_year, genres, media_type, personal_note, profiles:user_id(id, name, avatar_url)')
         .order('tmdb_rating', { ascending: false })
         .limit(30)
 
-      // Deduplicate by tmdb_id
+      // Deduplicate by tmdb_id & filter out watchlist-only items
       const seen = new Set()
       const results = (data || []).filter(p => {
+        if (p.personal_note === '__system_watchlist_only__') return false
         if (seen.has(p.tmdb_id)) return false
         seen.add(p.tmdb_id); return true
       })
@@ -36,14 +37,15 @@ export async function GET(request) {
     // ── With query: full-text search ──
     const { data } = await supabase
       .from('posts')
-      .select('tmdb_id, title, poster_path, tmdb_rating, release_year, genres, media_type, profiles:user_id(id, name, avatar_url)')
+      .select('tmdb_id, title, poster_path, tmdb_rating, release_year, genres, media_type, personal_note, profiles:user_id(id, name, avatar_url)')
       .textSearch('title', term, { type: 'websearch' })
       .order('tmdb_rating', { ascending: false })
       .limit(20)
 
-    // Deduplicate by tmdb_id
+    // Deduplicate by tmdb_id & filter out watchlist-only items
     const seen = new Set()
     const results = (data || []).filter(p => {
+      if (p.personal_note === '__system_watchlist_only__') return false
       if (seen.has(p.tmdb_id)) return false
       seen.add(p.tmdb_id); return true
     })

@@ -32,7 +32,9 @@ export async function GET(request, { params }) {
 
     if (postsError) return NextResponse.json({ error: postsError.message }, { status: 500 })
 
-    return NextResponse.json({ profile: profile || null, posts: posts || [] })
+    const filteredPosts = (posts || []).filter(post => post.personal_note !== '__system_watchlist_only__')
+
+    return NextResponse.json({ profile: profile || null, posts: filteredPosts })
   } catch (e) {
     return NextResponse.json({ error: e.message }, { status: 500 })
   }

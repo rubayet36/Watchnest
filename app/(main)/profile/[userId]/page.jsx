@@ -1,7 +1,7 @@
 'use client'
 
 import { use, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useProfile, useUserPosts } from '@/hooks/useProfile'
 import { useAuth } from '@/context/AuthContext'
 import Image from 'next/image'
@@ -11,19 +11,32 @@ import { getCategoryById, CATEGORIES, timeAgo } from '@/lib/utils'
 import { CardSkeleton, EmptyState } from '@/components/ui/LoadingSpinner'
 import Avatar from '@/components/ui/Avatar'
 import MovieCard from '@/components/feed/MovieCard'
-import { Film, Star, Calendar, Grid, List, MessageSquareHeart } from 'lucide-react'
+import { Film, Star, Calendar, Grid, List, MessageSquareHeart, Camera, Upload, Trash2, Save, X } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import UserReviewsModal from '@/components/profile/UserReviewsModal'
 import AdminApprovalPanel from '@/components/profile/AdminApprovalPanel'
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
+import toast from 'react-hot-toast'
+import { createClient } from '@/lib/supabase/client'
 
 export default function ProfilePage({ params }) {
   const { userId } = use(params)
-  const { user, profile: myProfile } = useAuth()
+  const { user, profile: myProfile, updateProfile } = useAuth()
   const { data: profile, isLoading: profileLoading } = useProfile(userId)
   const { data: posts, isLoading: postsLoading } = useUserPosts(userId)
   const [activeCategory, setActiveCategory] = useState(null)
   const [view, setView] = useState('grid')
   const [showReviews, setShowReviews] = useState(false)
+
+  // Edit Profile modal states
+  const [showEditProfile, setShowEditProfile] = useState(false)
+  const [editName, setEditName] = useState('')
+  const [editBio, setEditBio] = useState('')
+  const [editAvatarUrl, setEditAvatarUrl] = useState('')
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  const queryClient = useQueryClient()
 
   // Fetch reviews for avg rating
   const { data: reviewsData } = useQuery({
@@ -55,6 +68,96 @@ export default function ProfilePage({ params }) {
   const filteredPosts = activeCategory
     ? posts?.filter(p => p.category === activeCategory)
     : posts
+
+  const openEditModal = () => {
+    setEditName(displayProfile?.name || '')
+    setEditBio(displayProfile?.bio || '')
+    setEditAvatarUrl(displayProfile?.avatar_url || '')
+    setShowEditProfile(true)
+  }
+
+  async function handleAvatarUpload(event) {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    if (!user) {
+      toast.error('Sign in again before uploading a picture')
+      return
+    }
+
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+    if (!allowedTypes.includes(file.type)) {
+      toast.error('Use a JPG, PNG, WebP, or GIF image')
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Profile picture must be under 5 MB')
+      return
+    }
+
+    setUploadingAvatar(true)
+    try {
+      const supabase = createClient()
+      const extension = file.name.split('.').pop()?.toLowerCase() || 'jpg'
+      const filePath = `${user.id}/avatar-${Date.now()}.${extension}`
+      const { error } = await supabase.storage
+        .from('profile-avatars')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          contentType: file.type,
+          upsert: false,
+        })
+
+      if (error) throw error
+
+      const { data } = supabase.storage.from('profile-avatars').getPublicUrl(filePath)
+      const nextAvatarUrl = `${data.publicUrl}?v=${Date.now()}`
+      const { error: saveError } = await updateProfile({ avatar_url: nextAvatarUrl })
+      if (saveError) throw new Error('Picture uploaded, but profile update failed')
+
+      setEditAvatarUrl(nextAvatarUrl)
+      queryClient.invalidateQueries({ queryKey: ['profile', userId] })
+      toast.success('Profile picture updated')
+    } catch (error) {
+      toast.error(error.message || 'Could not upload picture')
+    } finally {
+      setUploadingAvatar(false)
+    }
+  }
+
+  async function handleAvatarRemove() {
+    setUploadingAvatar(true)
+    const { error } = await updateProfile({ avatar_url: null })
+    setUploadingAvatar(false)
+    if (error) {
+      toast.error('Could not remove picture')
+      return
+    }
+    setEditAvatarUrl('')
+    queryClient.invalidateQueries({ queryKey: ['profile', userId] })
+    toast.success('Profile picture removed')
+  }
+
+  async function handleSave() {
+    if (!editName.trim()) {
+      toast.error('Name cannot be empty')
+      return
+    }
+    setSaving(true)
+    const { error } = await updateProfile({
+      name: editName.trim(),
+      bio: editBio.trim(),
+      avatar_url: editAvatarUrl || null
+    })
+    setSaving(false)
+    if (error) {
+      toast.error('Failed to save changes')
+    } else {
+      queryClient.invalidateQueries({ queryKey: ['profile', userId] })
+      toast.success('Profile updated')
+      setShowEditProfile(false)
+    }
+  }
 
   // Show skeleton only briefly if no profile at all
   if (profileLoading && !displayProfile) {
@@ -102,12 +205,19 @@ export default function ProfilePage({ params }) {
                 </p>
               </div>
               {isOwnProfile && (
-                <Link href="/settings" style={{
-                  padding: '0.375rem 0.875rem', borderRadius: 10,
-                  background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-                  color: '#94a3b8', fontSize: '0.8125rem', textDecoration: 'none',
-                  transition: 'all .15s',
-                }}>Edit</Link>
+                <button
+                  onClick={openEditModal}
+                  style={{
+                    padding: '0.375rem 0.875rem', borderRadius: 10,
+                    background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+                    color: '#94a3b8', fontSize: '0.8125rem', cursor: 'pointer',
+                    transition: 'all .15s',
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+                >
+                  Edit
+                </button>
               )}
             </div>
             {displayProfile.bio && (
@@ -247,6 +357,247 @@ export default function ProfilePage({ params }) {
 
       <AnimatePresence>
         {showReviews && <UserReviewsModal profile={displayProfile} onClose={() => setShowReviews(false)} />}
+        {showEditProfile && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'rgba(9, 9, 11, 0.8)',
+              backdropFilter: 'blur(12px)',
+              zIndex: 999,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '1rem',
+            }}
+            onClick={() => !uploadingAvatar && !saving && setShowEditProfile(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 20 }}
+              transition={{ type: 'spring', duration: 0.4 }}
+              style={{
+                width: '100%',
+                maxWidth: 480,
+                background: 'rgba(20, 20, 35, 0.9)',
+                backdropFilter: 'blur(25px)',
+                border: '1px solid rgba(139, 92, 246, 0.25)',
+                borderRadius: 24,
+                padding: '1.75rem',
+                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 40px rgba(139, 92, 246, 0.1)',
+                color: '#e2e8f0',
+                position: 'relative',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem' }}>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0, color: '#f8fafc' }}>
+                  Edit Profile
+                </h3>
+                <button
+                  onClick={() => !uploadingAvatar && !saving && setShowEditProfile(false)}
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    borderRadius: '50%',
+                    width: 32,
+                    height: 32,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                    color: '#94a3b8',
+                    transition: 'all 0.2s',
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+                  onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              {/* Avatar section */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1.25rem', marginBottom: '1.5rem' }}>
+                <Avatar user={{ ...displayProfile, avatar_url: editAvatarUrl }} size={72} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <label style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '0.4rem',
+                      background: 'rgba(124, 58, 237, 0.15)',
+                      border: '1px solid rgba(124, 58, 237, 0.3)',
+                      color: '#a78bfa',
+                      fontSize: '0.8rem',
+                      fontWeight: 700,
+                      padding: '0.5rem 1rem',
+                      borderRadius: 12,
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                    }}>
+                      {uploadingAvatar ? <LoadingSpinner size="sm" /> : <Upload size={14} />}
+                      {uploadingAvatar ? 'Uploading...' : 'Change Photo'}
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp,image/gif"
+                        style={{ display: 'none' }}
+                        onChange={handleAvatarUpload}
+                        disabled={uploadingAvatar || saving}
+                      />
+                    </label>
+                    {editAvatarUrl && (
+                      <button
+                        type="button"
+                        onClick={handleAvatarRemove}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.4rem',
+                          background: 'rgba(244, 63, 94, 0.08)',
+                          border: '1px solid rgba(244, 63, 94, 0.2)',
+                          color: '#fb7185',
+                          fontSize: '0.8rem',
+                          fontWeight: 700,
+                          padding: '0.5rem 1rem',
+                          borderRadius: 12,
+                          cursor: 'pointer',
+                          transition: 'all 0.2s',
+                        }}
+                        disabled={uploadingAvatar || saving}
+                      >
+                        <Trash2 size={14} />
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                  <p style={{ color: '#64748b', fontSize: '0.7rem', marginTop: '0.35rem' }}>
+                    JPG, PNG, WebP, or GIF. Max 5 MB.
+                  </p>
+                </div>
+              </div>
+
+              {/* Form Inputs */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', marginBottom: '1.75rem' }}>
+                <div>
+                  <label htmlFor="modal-display-name" style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#94a3b8', marginBottom: '0.5rem' }}>
+                    Display Name
+                  </label>
+                  <input
+                    id="modal-display-name"
+                    type="text"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    style={{
+                      width: '100%',
+                      background: 'rgba(255, 255, 255, 0.03)',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      borderRadius: 12,
+                      padding: '0.75rem 1rem',
+                      color: '#f8fafc',
+                      fontSize: '0.9rem',
+                      outline: 'none',
+                      transition: 'all 0.2s',
+                    }}
+                    placeholder="Your display name"
+                    disabled={uploadingAvatar || saving}
+                    onFocus={(e) => e.target.style.borderColor = 'rgba(124, 58, 237, 0.5)'}
+                    onBlur={(e) => e.target.style.borderColor = 'rgba(255, 255, 255, 0.1)'}
+                  />
+                </div>
+
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
+                    <label htmlFor="modal-profile-bio" style={{ display: 'block', fontSize: '0.8rem', fontWeight: 700, color: '#94a3b8' }}>
+                      Bio
+                    </label>
+                    <span style={{ fontSize: '0.75rem', color: '#64748b' }}>
+                      {editBio.length}/200
+                    </span>
+                  </div>
+                  <textarea
+                    id="modal-profile-bio"
+                    value={editBio}
+                    onChange={(e) => setEditBio(e.target.value)}
+                    style={{
+                      width: '100%',
+                      background: 'rgba(255, 255, 255, 0.03)',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      borderRadius: 12,
+                      padding: '0.75rem 1rem',
+                      color: '#f8fafc',
+                      fontSize: '0.9rem',
+                      outline: 'none',
+                      resize: 'none',
+                      minHeight: 80,
+                      transition: 'all 0.2s',
+                    }}
+                    placeholder="Tell your friends about your movie taste..."
+                    maxLength={200}
+                    disabled={uploadingAvatar || saving}
+                    onFocus={(e) => e.target.style.borderColor = 'rgba(124, 58, 237, 0.5)'}
+                    onBlur={(e) => e.target.style.borderColor = 'rgba(255, 255, 255, 0.1)'}
+                  />
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div style={{ display: 'flex', gap: '0.75rem' }}>
+                <button
+                  type="button"
+                  onClick={() => !uploadingAvatar && !saving && setShowEditProfile(false)}
+                  style={{
+                    flex: 1,
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    borderRadius: 14,
+                    padding: '0.875rem',
+                    color: '#94a3b8',
+                    fontWeight: 700,
+                    fontSize: '0.9rem',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                  }}
+                  disabled={uploadingAvatar || saving}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  style={{
+                    flex: 1,
+                    background: 'linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%)',
+                    border: 'none',
+                    borderRadius: 14,
+                    padding: '0.875rem',
+                    color: '#ffffff',
+                    fontWeight: 700,
+                    fontSize: '0.9rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '0.5rem',
+                    transition: 'all 0.2s',
+                    boxShadow: '0 4px 12px rgba(124, 58, 237, 0.3)',
+                  }}
+                  disabled={uploadingAvatar || saving}
+                >
+                  {saving ? <LoadingSpinner size="sm" /> : <Save size={16} />}
+                  {saving ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
       </AnimatePresence>
     </div>
   )

@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { Home, Search, Bookmark, User, Plus, LogOut, Settings } from 'lucide-react'
+import { Home, Search, Bookmark, User, Plus, LogOut, History } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import Avatar from '@/components/ui/Avatar'
 import NotificationsDropdown from '@/components/layout/NotificationsDropdown'
@@ -15,11 +15,11 @@ export default function Navbar({ onAddClick }) {
   const profileHref = user?.id ? `/profile/${user.id}` : '#'
 
   const navItems = [
-    { href: '/', icon: Home, label: 'Home' },
-    { href: '/search', icon: Search, label: 'Search' },
+    { href: '/feed', icon: Home, label: 'Home' },
     { href: '/watchlist', icon: Bookmark, label: 'Watchlist' },
+    { href: '/', icon: Search, label: 'Search' },
     { href: profileHref, icon: User, label: 'Profile' },
-    { href: '/settings', icon: Settings, label: 'Settings' },
+    { href: '/history', icon: History, label: 'History' },
   ]
 
   const isActive = (href) => {

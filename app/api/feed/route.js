@@ -89,7 +89,7 @@ async function fetchLegacyFeed(supabase, filters) {
   }
 
   if (error) throw error
-  return data || []
+  return (data || []).filter(post => post.personal_note !== '__system_watchlist_only__')
 }
 
 function mergeLegacyPosts(data) {
@@ -190,8 +190,9 @@ export async function GET(request) {
       })
 
       if (!rpcError && Array.isArray(rpcRows)) {
+        const filtered = rpcRows.map(normalizeAggregatedPost).filter(post => post.personal_note !== '__system_watchlist_only__')
         return NextResponse.json({
-          posts: rpcRows.slice(0, PAGE_SIZE).map(normalizeAggregatedPost),
+          posts: filtered.slice(0, PAGE_SIZE),
           nextPage: rpcRows.length > PAGE_SIZE ? page + 1 : null,
         })
       }

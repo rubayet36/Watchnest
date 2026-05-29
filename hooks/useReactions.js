@@ -132,3 +132,87 @@ export function useWatchlist() {
     isSaving: toggleSave.isPending,
   }
 }
+
+export function useDirectWatchlist() {
+  const { user } = useAuth()
+  const queryClient = useQueryClient()
+
+  const directToggle = useMutation({
+    mutationFn: async (movie) => {
+      if (!user) throw new Error('Not authenticated')
+      
+      const genreMap = { 28: 'Action', 35: 'Comedy', 18: 'Drama', 27: 'Horror', 878: 'Sci-Fi', 10749: 'Romance', 53: 'Thriller', 16: 'Animation', 80: 'Crime', 12: 'Adventure', 14: 'Fantasy', 99: 'Documentary' }
+      const genres = (movie.genre_ids || []).map(id => genreMap[id] || 'Other')
+      const releaseDate = movie.release_date || movie.first_air_date
+      const releaseYear = releaseDate ? parseInt(releaseDate.split('-')[0]) : null
+
+      const payload = {
+        tmdb_id: movie.id,
+        title: movie.title || movie.name,
+        poster_path: movie.poster_path || null,
+        genres,
+        tmdb_rating: movie.vote_average || null,
+        release_year: releaseYear,
+        media_type: movie.media_type || 'movie'
+      }
+
+      const res = await authFetch('/api/watchlist/direct', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Watchlist toggle failed')
+      return json
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['feed'] })
+      queryClient.invalidateQueries({ queryKey: ['watchlist'] })
+      if (data.saved) {
+        toast.success('Added to watchlist ✓')
+      } else {
+        toast('Removed from watchlist', {
+          icon: '🗑️',
+          style: { background: '#1c1c2e', color: '#e2e8f0', border: '1px solid rgba(255,255,255,0.08)' },
+        })
+      }
+    },
+    onError: (e) => toast.error(e.message),
+  })
+
+  return {
+    toggleDirect: directToggle.mutate,
+    isDirectToggling: directToggle.isPending,
+  }
+}
+
+export function useWatchStatus() {
+  const { user } = useAuth()
+  const queryClient = useQueryClient()
+
+  const statusMutation = useMutation({
+    mutationFn: async ({ save_id, watch_status }) => {
+      if (!user) throw new Error('Not authenticated')
+      
+      const res = await authFetch('/api/saves/status', {
+        method: 'PATCH',
+        body: JSON.stringify({ save_id, watch_status })
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Status update failed')
+      return json
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['feed'] })
+      queryClient.invalidateQueries({ queryKey: ['watchlist'] })
+      toast.success(`Watch status updated!`)
+    },
+    onError: (e) => toast.error(e.message),
+  })
+
+  return {
+    updateStatus: statusMutation.mutate,
+    isUpdatingStatus: statusMutation.isPending,
+  }
+}
+
+
