@@ -11,7 +11,7 @@ import { getCategoryById, CATEGORIES, timeAgo } from '@/lib/utils'
 import { CardSkeleton, EmptyState } from '@/components/ui/LoadingSpinner'
 import Avatar from '@/components/ui/Avatar'
 import MovieCard from '@/components/feed/MovieCard'
-import { Film, Star, Calendar, Grid, List, MessageSquareHeart, Camera, Upload, Trash2, Save, X } from 'lucide-react'
+import { Film, Star, Calendar, Grid, List, MessageSquareHeart, Camera, Upload, Trash2, Save, X, LogOut } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import UserReviewsModal from '@/components/profile/UserReviewsModal'
 import AdminApprovalPanel from '@/components/profile/AdminApprovalPanel'
@@ -21,7 +21,7 @@ import { createClient } from '@/lib/supabase/client'
 
 export default function ProfilePage({ params }) {
   const { userId } = use(params)
-  const { user, profile: myProfile, updateProfile } = useAuth()
+  const { user, profile: myProfile, updateProfile, signOut } = useAuth()
   const { data: profile, isLoading: profileLoading } = useProfile(userId)
   const { data: posts, isLoading: postsLoading } = useUserPosts(userId)
   const [activeCategory, setActiveCategory] = useState(null)
@@ -205,19 +205,36 @@ export default function ProfilePage({ params }) {
                 </p>
               </div>
               {isOwnProfile && (
-                <button
-                  onClick={openEditModal}
-                  style={{
-                    padding: '0.375rem 0.875rem', borderRadius: 10,
-                    background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
-                    color: '#94a3b8', fontSize: '0.8125rem', cursor: 'pointer',
-                    transition: 'all .15s',
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
-                  onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
-                >
-                  Edit
-                </button>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  <button
+                    onClick={openEditModal}
+                    style={{
+                      padding: '0.375rem 0.875rem', borderRadius: 10,
+                      background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+                      color: '#94a3b8', fontSize: '0.8125rem', cursor: 'pointer',
+                      transition: 'all .15s',
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={signOut}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: '4px',
+                      padding: '0.375rem 0.875rem', borderRadius: 10,
+                      background: 'rgba(244,63,94,0.1)', border: '1px solid rgba(244,63,94,0.2)',
+                      color: '#fb7185', fontSize: '0.8125rem', cursor: 'pointer',
+                      transition: 'all .15s',
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(244,63,94,0.18)'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(244,63,94,0.1)'}
+                  >
+                    <LogOut size={13} />
+                    Sign out
+                  </button>
+                </div>
               )}
             </div>
             {displayProfile.bio && (

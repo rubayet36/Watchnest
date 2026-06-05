@@ -538,7 +538,7 @@ function SearchContent() {
             <div style={{ textAlign: 'center', padding: '3rem' }}>
               <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>🎭</div>
               <p style={{ color: '#64748b' }}>
-                No results for "{input}"
+                No results for &quot;{input}&quot;
               </p>
             </div>
           ) : (
