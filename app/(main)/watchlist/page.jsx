@@ -85,7 +85,7 @@ function MySavesTab() {
     onSettled: () => qc.invalidateQueries({ queryKey: watchlistKey }),
   })
 
-  const savedMovies = useMemo(() => movies || [], [movies])
+  const savedMovies = useMemo(() => (movies || []).filter(m => m.media_type !== 'anime'), [movies])
   const toWatch = useMemo(() => savedMovies.filter(m => !m.watched), [savedMovies])
   const watched = useMemo(() => savedMovies.filter(m => m.watched), [savedMovies])
   const sharedCount = useMemo(() => savedMovies.filter(m => m.shared_by_user).length, [savedMovies])

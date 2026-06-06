@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server'
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
 
 export const runtime = 'edge'
 
@@ -129,8 +131,36 @@ export async function GET(request, { params }) {
     let variables = {}
     let graphQuery = ''
 
+    let resolvedId = undefined
+
     if (endpoint === 'info') {
-      const animeId = parseInt(url.searchParams.get('id'))
+      const rawId = url.searchParams.get('id')
+      let animeId = parseInt(rawId)
+
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+      if (isNaN(animeId) && rawId && uuidRegex.test(rawId)) {
+        const cookieStore = await cookies()
+        const supabase = createServerClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+          { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
+        )
+
+        const { data: post, error: postError } = await supabase
+          .from('posts')
+          .select('tmdb_id, media_type')
+          .eq('id', rawId)
+          .single()
+
+        if (!postError && post) {
+          if (post.media_type && post.media_type !== 'anime') {
+            return NextResponse.json({ redirect: true, mediaType: post.media_type, tmdbId: post.tmdb_id })
+          }
+          animeId = post.tmdb_id
+          resolvedId = post.tmdb_id
+        }
+      }
+
       if (!animeId) {
         return NextResponse.json({ error: 'Anime ID is required' }, { status: 400 })
       }
@@ -176,6 +206,9 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: data.errors?.[0]?.message || 'GraphQL Error' }, { status: res.status })
     }
 
+    if (resolvedId) {
+      return NextResponse.json({ ...data.data, resolvedId })
+    }
     return NextResponse.json(data.data)
   } catch (err) {
     return NextResponse.json({ error: err.message }, { status: 500 })

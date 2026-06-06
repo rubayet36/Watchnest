@@ -501,7 +501,7 @@ function AnimeCard({ movie }) {
   const norm = useMemo(() => {
     if (!movie) return null
     return {
-      id: movie.id || movie.tmdb_id,
+      id: movie.tmdb_id || movie.id,
       title: movie.title?.english || movie.title?.romaji || movie.title,
       coverImage: movie.coverImage?.large || movie.poster_path,
       averageScore: movie.averageScore || (movie.tmdb_rating ? movie.tmdb_rating * 10 : null)

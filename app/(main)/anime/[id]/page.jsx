@@ -65,6 +65,13 @@ export default function AnimeDetailPage({ params }) {
       const res = await fetch(`/api/anime/info?id=${animeId}`)
       if (!res.ok) throw new Error('Failed to fetch anime info')
       const json = await res.json()
+      if (json.redirect) {
+        router.replace(`/media/${json.mediaType}/${json.tmdbId}`)
+        return null
+      }
+      if (json.resolvedId) {
+        router.replace(`/anime/${json.resolvedId}`)
+      }
       return json.Media
     },
     enabled: !!animeId,
@@ -88,16 +95,49 @@ export default function AnimeDetailPage({ params }) {
     enabled: !!searchTitle,
   })
 
+  // Calculate best Gogo ID using scoring
+  const bestGogoId = useMemo(() => {
+    if (!gogoSearchData?.results?.length || !searchTitle) return ''
+
+    const cleanStr = (s) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '').replace(/\s+/g, '')
+    const targetClean = cleanStr(searchTitle)
+
+    let bestId = gogoSearchData.results[0].id
+    let bestScore = -1
+
+    gogoSearchData.results.forEach((item) => {
+      const itemClean = cleanStr(item.title)
+      let score = 0
+
+      if (itemClean === targetClean) {
+        score = 100 // exact match
+      } else if (itemClean === targetClean + 'dub' || itemClean === targetClean + 'dubbed') {
+        score = 95 // exact match with dub
+      } else if (itemClean === targetClean + 'sub' || itemClean === targetClean + 'subbed') {
+        score = 95 // exact match with sub
+      } else if (itemClean.startsWith(targetClean)) {
+        score = 80 - Math.abs(itemClean.length - targetClean.length)
+      } else if (itemClean.includes(targetClean)) {
+        score = 60 - Math.abs(itemClean.length - targetClean.length)
+      }
+
+      if (score > bestScore) {
+        bestScore = score
+        bestId = item.id
+      }
+    })
+
+    return bestId
+  }, [gogoSearchData, searchTitle])
+
   // Auto-select best Gogo ID
   useEffect(() => {
-    if (gogoSearchData?.results?.length > 0) {
-      // Find exact or closest match
-      const firstResult = gogoSearchData.results[0]
-      setSelectedGogoId(firstResult.id)
+    if (bestGogoId) {
+      setSelectedGogoId(bestGogoId)
     } else {
       setSelectedGogoId('')
     }
-  }, [gogoSearchData])
+  }, [bestGogoId])
 
   // ── 3. Fetch GogoAnime Details (Episode List) ─────────────────────
   const { data: gogoInfo, isLoading: infoLoading } = useQuery({
@@ -306,28 +346,69 @@ export default function AnimeDetailPage({ params }) {
               🇺🇸 Dubbed
             </button>
           </div>
-
-          {/* Alternative matches list dropdown in case Gogo map fails */}
-          {gogoSearchData?.results?.length > 1 && (
-            <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-              <select
-                value={selectedGogoId}
-                onChange={(e) => setSelectedGogoId(e.target.value)}
-                style={{
-                  minHeight: '38px', borderRadius: '12px', background: 'rgba(255,255,255,0.04)',
-                  border: '1px solid rgba(255,255,255,0.08)', color: '#94a3b8', fontSize: '0.75rem',
-                  fontWeight: 800, padding: '0 1.5rem 0 0.75rem', cursor: 'pointer', outline: 'none'
-                }}
-              >
-                {gogoSearchData.results.slice(0, 5).map(item => (
-                  <option key={item.id} value={item.id} style={{ background: '#1c1c2e', color: '#fff' }}>
-                    Match: {item.title}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
         </div>
+
+        {/* Version Matches Shelf */}
+        {gogoSearchData?.results?.length > 1 && (
+          <div style={{ marginBottom: '2rem' }}>
+            <h4 style={{ fontSize: '0.75rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 0.75rem' }}>
+              Select Stream Version Match
+            </h4>
+            <div style={{ display: 'flex', gap: '12px', overflowX: 'auto', paddingBottom: '8px' }} className="custom-scrollbar">
+              {gogoSearchData.results.slice(0, 5).map((item) => {
+                const isActive = item.id === selectedGogoId
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => setSelectedGogoId(item.id)}
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      width: '90px',
+                      flexShrink: 0,
+                      background: 'transparent',
+                      border: 'none',
+                      padding: 0,
+                      cursor: 'pointer',
+                      textAlign: 'left'
+                    }}
+                  >
+                    <div style={{
+                      position: 'relative',
+                      width: '100%',
+                      aspectRatio: '2/3',
+                      borderRadius: '12px',
+                      overflow: 'hidden',
+                      border: isActive ? '2px solid #f47521' : '1px solid rgba(255,255,255,0.08)',
+                      boxShadow: isActive ? '0 0 12px rgba(244,117,33,0.35)' : 'none',
+                      transition: 'all 0.2s ease',
+                      marginBottom: '6px'
+                    }}>
+                      {item.image ? (
+                        <Image src={item.image} alt={item.title} fill sizes="90px" style={{ objectFit: 'cover' }} />
+                      ) : (
+                        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#1c1c2e', color: '#64748b' }}>🎬</div>
+                      )}
+                    </div>
+                    <span style={{
+                      fontSize: '0.68rem',
+                      fontWeight: isActive ? 800 : 600,
+                      color: isActive ? '#f47521' : '#94a3b8',
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      lineHeight: 1.2
+                    }}>
+                      {item.title}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Synopsis */}
         <div style={{ marginBottom: '2.5rem' }}>

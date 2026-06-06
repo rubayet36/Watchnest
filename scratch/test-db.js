@@ -32,23 +32,25 @@ if (!supabaseUrl || !supabaseKey) {
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function checkSchema() {
-  console.log("Checking saves table structure in database...");
+  console.log("Checking specific save query...");
   
-  // Standard query
   const { data, error: queryError } = await supabase
     .from('saves')
-    .select('*')
-    .limit(1);
+    .select(`
+      id, created_at,
+      posts(id, tmdb_id, title, poster_path, genres, tmdb_rating, release_year, category, personal_note, media_type)
+    `)
+    .eq('posts.id', 'bc9a71f2-2a49-44a1-81df-d45058dfe3cc');
 
   if (queryError) {
     console.error("Query failed:", queryError);
   } else {
-    console.log("Successfully fetched rows from saves:", data);
-    if (data && data.length > 0) {
-      console.log("Available columns in saves table:", Object.keys(data[0]));
-    } else {
-      console.log("Saves table is empty, columns cannot be auto-detected via data select.");
-    }
+    const movies = (data || []).map(s => ({
+      ...s.posts,
+      save_id: s.id,
+      saved_at: s.created_at,
+    })).filter(s => s.id === 'bc9a71f2-2a49-44a1-81df-d45058dfe3cc');
+    console.log("Mapped specific movie in watchlist:", movies);
   }
 }
 
