@@ -4,8 +4,8 @@ import { Suspense } from 'react'
 import { useState, useEffect, useRef } from 'react'
 import { useMovieSearch } from '@/hooks/useMovieSearch'
 import Link from 'next/link'
-import { Search, X, Star, Plus, TrendingUp, Trophy, Bookmark, BookmarkCheck, Play } from 'lucide-react'
-import { getPosterUrl, getTrending, getBackdropUrl, getMoviesByGenre } from '@/lib/tmdb'
+import { Search, X, Star, Plus, TrendingUp, Trophy, Bookmark, BookmarkCheck, Play, ChevronDown } from 'lucide-react'
+import { getPosterUrl, getTrending, getBackdropUrl, getMoviesByGenre, TMDB_GENRES, tmdbFetch } from '@/lib/tmdb'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import PosterImage from '@/components/ui/PosterImage'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -166,7 +166,7 @@ function ResultRow({ movie, searchMode, index, watchlist }) {
   )
 }
 
-function NetflixDiscovery({ watchlist }) {
+function NetflixDiscovery({ watchlist, onMoreClick }) {
   const { toggleDirect, isDirectToggling } = useDirectWatchlist()
   const [heroIndex, setHeroIndex] = useState(0)
 
@@ -387,9 +387,29 @@ function NetflixDiscovery({ watchlist }) {
       {/* Rows */}
       {rows.map(row => (
         <div key={row.title} style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-          <h3 style={{ margin: 0, fontSize: '0.9375rem', fontWeight: 800, color: '#e2e8f0', display: 'flex', alignItems: 'center', gap: 6 }}>
-            {row.title}
-          </h3>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+            <h3 style={{ margin: 0, fontSize: '0.9375rem', fontWeight: 800, color: '#e2e8f0', display: 'flex', alignItems: 'center', gap: 6 }}>
+              {row.title}
+            </h3>
+            <button
+              onClick={() => onMoreClick?.(row.title)}
+              style={{
+                padding: '0.3rem 0.75rem',
+                background: 'rgba(255, 255, 255, 0.05)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                borderRadius: '8px',
+                color: '#94a3b8',
+                fontSize: '0.7rem',
+                fontWeight: 800,
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)' }}
+              onMouseLeave={e => { e.currentTarget.style.color = '#94a3b8'; e.currentTarget.style.background = 'rgba(255,255,255,0.05)' }}
+            >
+              More
+            </button>
+          </div>
           
           {/* Horizontal Scroller */}
           <div
@@ -409,14 +429,456 @@ function NetflixDiscovery({ watchlist }) {
   )
 }
 
+// ── Discover Grid Helpers ─────────────────────────────────────
+async function fetchDiscoverGrid({ category, type, genre, year, lang, page }) {
+  const currentDate = new Date().toISOString().split('T')[0]
+
+  // Fallback to trending by default if no filters/categories are active in filter mode
+  const hasFilter = Boolean(genre || year || lang)
+  if (!hasFilter && !category) {
+    const isTv = type === 'tv'
+    const isAnime = type === 'anime'
+    if (isAnime) {
+      // Fall through to show animation discover grid
+    } else {
+      let endpoint = '/trending/all/week'
+      if (isTv) endpoint = '/trending/tv/week'
+      else if (type === 'movie') endpoint = '/trending/movie/week'
+      
+      const data = await tmdbFetch(endpoint, { page })
+      return {
+        results: (data.results || []).map(item => ({
+          ...item,
+          media_type: item.media_type || (isTv ? 'tv' : 'movie')
+        })),
+        totalPages: Math.min(data.total_pages || 1, 500)
+      }
+    }
+  }
+
+  if (category) {
+    if (category === 'trending') {
+      const data = await tmdbFetch('/trending/all/week', { page })
+      return {
+        results: (data.results || []).map(item => ({ ...item, media_type: item.media_type || 'movie' })),
+        totalPages: Math.min(data.total_pages || 1, 500)
+      }
+    }
+    if (category === 'tv') {
+      const data = await tmdbFetch('/discover/tv', { page, sort_by: 'popularity.desc' })
+      return {
+        results: (data.results || []).map(item => ({ ...item, media_type: 'tv' })),
+        totalPages: Math.min(data.total_pages || 1, 500)
+      }
+    }
+    if (category === 'anime') {
+      const data = await tmdbFetch('/discover/tv', { with_genres: 16, page, sort_by: 'popularity.desc' })
+      return {
+        results: (data.results || []).map(item => ({ ...item, media_type: 'tv' })),
+        totalPages: Math.min(data.total_pages || 1, 500)
+      }
+    }
+    if (category === 'action') {
+      const data = await tmdbFetch('/discover/movie', { with_genres: 28, page, sort_by: 'popularity.desc' })
+      return {
+        results: (data.results || []).map(item => ({ ...item, media_type: 'movie' })),
+        totalPages: Math.min(data.total_pages || 1, 500)
+      }
+    }
+    if (category === 'scifi') {
+      const data = await tmdbFetch('/discover/movie', { with_genres: 878, page, sort_by: 'popularity.desc' })
+      return {
+        results: (data.results || []).map(item => ({ ...item, media_type: 'movie' })),
+        totalPages: Math.min(data.total_pages || 1, 500)
+      }
+    }
+  }
+
+  // Otherwise, it's the filter discover query
+  const isTv = type === 'tv'
+  const isAnime = type === 'anime'
+  const isAll = type === 'all' || !type
+
+  if (isAnime) {
+    const movieParams = { page, sort_by: year ? 'primary_release_date.desc' : 'popularity.desc' }
+    const tvParams = { page, sort_by: year ? 'first_air_date.desc' : 'popularity.desc' }
+    if (year) {
+      movieParams['primary_release_date.lte'] = currentDate
+      tvParams['first_air_date.lte'] = currentDate
+    }
+    
+    let movieGenre = '16'
+    let tvGenre = '16'
+    
+    if (genre) {
+      movieGenre = `16,${genre}`
+      let extraTvGenre = genre
+      if (extraTvGenre === '28') extraTvGenre = '10759'
+      else if (extraTvGenre === '878') extraTvGenre = '10765'
+      else if (extraTvGenre === '12') extraTvGenre = '10759'
+      tvGenre = `16,${extraTvGenre}`
+    }
+    
+    movieParams.with_genres = movieGenre
+    tvParams.with_genres = tvGenre
+    
+    if (year) {
+      movieParams.primary_release_year = year
+      tvParams.first_air_date_year = year
+    }
+    if (lang) {
+      movieParams.with_original_language = lang
+      tvParams.with_original_language = lang
+    }
+    
+    const [movieData, tvData] = await Promise.all([
+      tmdbFetch('/discover/movie', movieParams).catch(() => ({ results: [], total_pages: 1 })),
+      tmdbFetch('/discover/tv', tvParams).catch(() => ({ results: [], total_pages: 1 }))
+    ])
+    
+    const combined = [
+      ...(movieData.results || []).map(item => ({ ...item, media_type: 'movie' })),
+      ...(tvData.results || []).map(item => ({ ...item, media_type: 'tv' }))
+    ]
+    
+    if (year) {
+      combined.sort((a, b) => {
+        const dateA = a.release_date || a.first_air_date || ''
+        const dateB = b.release_date || b.first_air_date || ''
+        return dateB.localeCompare(dateA)
+      })
+    } else {
+      combined.sort((a, b) => (b.popularity || 0) - (a.popularity || 0))
+    }
+    
+    return {
+      results: combined,
+      totalPages: Math.min(Math.max(movieData.total_pages || 1, tvData.total_pages || 1), 500)
+    }
+  }
+
+  if (isAll) {
+    const movieParams = { page, sort_by: year ? 'primary_release_date.desc' : 'popularity.desc' }
+    const tvParams = { page, sort_by: year ? 'first_air_date.desc' : 'popularity.desc' }
+    if (year) {
+      movieParams['primary_release_date.lte'] = currentDate
+      tvParams['first_air_date.lte'] = currentDate
+    }
+    
+    if (genre) {
+      movieParams.with_genres = genre
+      let tvGenre = genre
+      if (genre === '28') tvGenre = '10759'
+      else if (genre === '878') tvGenre = '10765'
+      else if (genre === '12') tvGenre = '10759'
+      tvParams.with_genres = tvGenre
+    }
+    if (year) {
+      movieParams.primary_release_year = year
+      tvParams.first_air_date_year = year
+    }
+    if (lang) {
+      movieParams.with_original_language = lang
+      tvParams.with_original_language = lang
+    }
+    
+    const [movieData, tvData] = await Promise.all([
+      tmdbFetch('/discover/movie', movieParams).catch(() => ({ results: [], total_pages: 1 })),
+      tmdbFetch('/discover/tv', tvParams).catch(() => ({ results: [], total_pages: 1 }))
+    ])
+    
+    const combined = [
+      ...(movieData.results || []).map(item => ({ ...item, media_type: 'movie' })),
+      ...(tvData.results || []).map(item => ({ ...item, media_type: 'tv' }))
+    ]
+    
+    if (year) {
+      combined.sort((a, b) => {
+        const dateA = a.release_date || a.first_air_date || ''
+        const dateB = b.release_date || b.first_air_date || ''
+        return dateB.localeCompare(dateA)
+      })
+    } else {
+      combined.sort((a, b) => (b.popularity || 0) - (a.popularity || 0))
+    }
+    
+    return {
+      results: combined,
+      totalPages: Math.min(Math.max(movieData.total_pages || 1, tvData.total_pages || 1), 500)
+    }
+  }
+
+  const endpoint = isTv ? '/discover/tv' : '/discover/movie'
+  const params = {
+    page,
+    sort_by: year ? (isTv ? 'first_air_date.desc' : 'primary_release_date.desc') : 'popularity.desc'
+  }
+  if (year) {
+    params[isTv ? 'first_air_date.lte' : 'primary_release_date.lte'] = currentDate
+  }
+  if (genre) {
+    let targetGenreId = genre
+    if (isTv) {
+      if (genre === '28') targetGenreId = '10759'
+      else if (genre === '878') targetGenreId = '10765'
+      else if (genre === '12') targetGenreId = '10759'
+    }
+    params.with_genres = targetGenreId
+  }
+  if (year) {
+    if (isTv) {
+      params.first_air_date_year = year
+    } else {
+      params.primary_release_year = year
+    }
+  }
+  if (lang) {
+    params.with_original_language = lang
+  }
+  
+  const data = await tmdbFetch(endpoint, params)
+  return {
+    results: (data.results || []).map(item => ({ ...item, media_type: isTv ? 'tv' : 'movie' })),
+    totalPages: Math.min(data.total_pages || 1, 500)
+  }
+}
+
+function GridCard({ movie }) {
+  const targetId = String(movie.id || movie.tmdb_id)
+  const targetType = movie.media_type || 'movie'
+
+  const hasRating = movie.vote_average && movie.vote_average > 0
+  const tmdbScoreText = hasRating ? movie.vote_average.toFixed(1) : '❌'
+  const rtScoreText = hasRating ? `${Math.max(10, Math.min(100, Math.round(movie.vote_average * 10 + (movie.vote_average >= 7.5 ? 6 : (movie.vote_average <= 5.5 ? -8 : -2)))))}%` : '❌'
+  const imdbScoreText = hasRating ? Math.max(1.0, Math.min(10.0, movie.vote_average - 0.2 + (movie.vote_average > 8 ? 0.1 : (movie.vote_average < 6 ? -0.3 : 0)))).toFixed(1) : '❌'
+
+  return (
+    <Link
+      href={`/media/${targetType}/${targetId}`}
+      className="grid-netflix-card"
+      style={{
+        position: 'relative',
+        borderRadius: 12,
+        overflow: 'hidden',
+        cursor: 'pointer',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        aspectRatio: '2/3',
+        background: '#1c1c2e',
+        display: 'block'
+      }}
+    >
+      <PosterImage
+        src={getPosterUrl(movie.poster_path)}
+        alt={movie.title || movie.name}
+        fill
+        sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 15vw"
+        style={{ objectFit: 'cover' }}
+      />
+      
+      {/* Top Glassmorphic Ratings Bar */}
+      <div style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        background: 'linear-gradient(to bottom, rgba(9, 9, 14, 0.95) 0%, rgba(9, 9, 14, 0.7) 100%)',
+        backdropFilter: 'blur(4px)',
+        borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+        height: '24px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-around',
+        padding: '0 6px',
+        zIndex: 3
+      }}>
+        {/* RT */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '2px', fontSize: '0.625rem', fontWeight: '800', color: '#ef4444' }} title="Rotten Tomatoes Score">
+          <span style={{ fontSize: '0.7rem' }}>🍅</span>
+          {rtScoreText}
+        </div>
+        {/* IMDb */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '2px', fontSize: '0.625rem', fontWeight: '800', color: '#38bdf8' }} title="IMDb Score">
+          <span style={{ fontSize: '0.45rem', padding: '1px 2px', background: '#fbbf24', color: '#000', borderRadius: '2px', fontWeight: '900', lineHeight: 1 }}>IMDb</span>
+          {imdbScoreText}
+        </div>
+      </div>
+      <div 
+        className="card-overlay"
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'linear-gradient(to top, rgba(9, 9, 14, 0.95) 0%, rgba(9, 9, 14, 0.4) 60%, transparent 100%)',
+          padding: '12px',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'flex-end',
+          opacity: 0,
+          transition: 'opacity 0.25s ease',
+          zIndex: 2
+        }}
+      >
+        <span style={{
+          fontSize: '0.75rem',
+          fontWeight: 800,
+          color: '#fff',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          display: '-webkit-box',
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: 'vertical',
+          lineHeight: 1.2,
+          marginBottom: 4
+        }}>
+          {movie.title || movie.name}
+        </span>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.6875rem', color: '#cbd5e1' }}>
+          <span>{movie.release_date?.split('-')[0] || movie.first_air_date?.split('-')[0]}</span>
+          {movie.vote_average > 0 && (
+            <span style={{ display: 'flex', alignItems: 'center', gap: 2, color: '#f59e0b', fontWeight: 800 }}>
+              ★ {movie.vote_average.toFixed(1)}
+            </span>
+          )}
+        </div>
+      </div>
+    </Link>
+  )
+}
+
+function Pagination({ currentPage, totalPages, onPageChange }) {
+  if (totalPages <= 1) return null
+  const maxPages = Math.min(totalPages, 500)
+  
+  const range = []
+  const start = Math.max(1, currentPage - 2)
+  const end = Math.min(maxPages, currentPage + 2)
+  for (let i = start; i <= end; i++) {
+    range.push(i)
+  }
+
+  return (
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', margin: '2rem 0' }}>
+      <button
+        disabled={currentPage === 1}
+        onClick={() => onPageChange(currentPage - 1)}
+        style={{
+          padding: '0.5rem 0.85rem',
+          borderRadius: '10px',
+          background: 'rgba(255, 255, 255, 0.05)',
+          border: '1px solid rgba(255, 255, 255, 0.08)',
+          color: currentPage === 1 ? '#475569' : '#e2e8f0',
+          cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+          fontSize: '0.85rem',
+          fontWeight: 700,
+          transition: 'all 0.2s',
+        }}
+      >
+        Prev
+      </button>
+
+      {start > 1 && (
+        <>
+          <button
+            onClick={() => onPageChange(1)}
+            style={{
+              width: '36px', height: '36px', borderRadius: '10px',
+              background: 'rgba(255, 255, 255, 0.05)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              color: '#94a3b8', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 700,
+            }}
+          >
+            1
+          </button>
+          {start > 2 && <span style={{ color: '#475569', fontSize: '0.85rem' }}>...</span>}
+        </>
+      )}
+
+      {range.map(p => {
+        const isActive = p === currentPage
+        return (
+          <button
+            key={p}
+            onClick={() => onPageChange(p)}
+            style={{
+              width: '36px',
+              height: '36px',
+              borderRadius: '10px',
+              background: isActive ? 'linear-gradient(135deg,#7c3aed,#4f46e5)' : 'rgba(255, 255, 255, 0.05)',
+              border: isActive ? 'none' : '1px solid rgba(255, 255, 255, 0.08)',
+              color: '#fff',
+              cursor: 'pointer',
+              fontSize: '0.85rem',
+              fontWeight: 700,
+              boxShadow: isActive ? '0 4px 12px rgba(124,58,237,0.3)' : 'none',
+              transition: 'all 0.2s',
+            }}
+          >
+            {p}
+          </button>
+        )
+      })}
+
+      {end < maxPages && (
+        <>
+          {end < maxPages - 1 && <span style={{ color: '#475569', fontSize: '0.85rem' }}>...</span>}
+          <button
+            onClick={() => onPageChange(maxPages)}
+            style={{
+              width: '36px', height: '36px', borderRadius: '10px',
+              background: 'rgba(255, 255, 255, 0.05)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              color: '#94a3b8', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 700,
+            }}
+          >
+            {maxPages}
+          </button>
+        </>
+      )}
+
+      <button
+        disabled={currentPage === maxPages}
+        onClick={() => onPageChange(currentPage + 1)}
+        style={{
+          padding: '0.5rem 0.85rem',
+          borderRadius: '10px',
+          background: 'rgba(255, 255, 255, 0.05)',
+          border: '1px solid rgba(255, 255, 255, 0.08)',
+          color: currentPage === maxPages ? '#475569' : '#e2e8f0',
+          cursor: currentPage === maxPages ? 'not-allowed' : 'pointer',
+          fontSize: '0.85rem',
+          fontWeight: 700,
+          transition: 'all 0.2s',
+        }}
+      >
+        Next
+      </button>
+    </div>
+  )
+}
+
 // ── Main search component ─────────────────────────────────────
 function SearchContent() {
   const { user } = useAuth()
   const searchParams = useSearchParams()
 
   const initialQuery = searchParams.get('q') || ''
+  const initialType = searchParams.get('type') || 'all'
+  const initialGenre = searchParams.get('genre') || ''
+  const initialYear = searchParams.get('year') || ''
+  const initialLang = searchParams.get('lang') || ''
+  const initialCategory = searchParams.get('category') || ''
+  const initialPage = parseInt(searchParams.get('p') || '1', 10)
 
   const [input, setInput] = useState(initialQuery)
+  const [type, setType] = useState(initialType)
+  const [genre, setGenre] = useState(initialGenre)
+  const [year, setYear] = useState(initialYear)
+  const [lang, setLang] = useState(initialLang)
+  const [category, setCategory] = useState(initialCategory)
+  const [page, setPage] = useState(initialPage)
+  
+  const [isFilterActive, setIsFilterActive] = useState(
+    Boolean(initialGenre || initialYear || initialLang || initialCategory || searchParams.has('type'))
+  )
 
   const { data: watchlist } = useQuery({
     queryKey: ['watchlist', user?.id],
@@ -446,16 +908,38 @@ function SearchContent() {
     didInitRef.current = true
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  function updateUrl(q) {
-    if (typeof window === 'undefined') return
-    const params = new URLSearchParams()
-    if (q) params.set('q', q)
-    window.history.replaceState(window.history.state, '', `/search${params.toString() ? `?${params}` : ''}`)
+  function syncFilters(updates) {
+    const nextType = updates.hasOwnProperty('type') ? updates.type : type
+    const nextGenre = updates.hasOwnProperty('genre') ? updates.genre : genre
+    const nextYear = updates.hasOwnProperty('year') ? updates.year : year
+    const nextLang = updates.hasOwnProperty('lang') ? updates.lang : lang
+    const nextCategory = updates.hasOwnProperty('category') ? updates.category : category
+    const nextPage = updates.hasOwnProperty('page') ? updates.page : page
+    const nextInput = updates.hasOwnProperty('input') ? updates.input : input
+
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams()
+      if (nextInput) params.set('q', nextInput)
+      
+      const hasAnyFilter = nextCategory || nextGenre || nextYear || nextLang || updates.hasOwnProperty('type') || updates.hasOwnProperty('genre') || updates.hasOwnProperty('year') || updates.hasOwnProperty('lang') || updates.hasOwnProperty('category')
+      if (hasAnyFilter) {
+        if (nextType) params.set('type', nextType)
+        if (nextGenre) params.set('genre', nextGenre)
+        if (nextYear) params.set('year', nextYear)
+        if (nextLang) params.set('lang', nextLang)
+        if (nextCategory) params.set('category', nextCategory)
+        if (nextPage && nextPage > 1) params.set('p', nextPage)
+      }
+
+      const queryString = params.toString()
+      const targetUrl = queryString ? `/?${queryString}` : '/'
+      window.history.replaceState(window.history.state, '', targetUrl)
+    }
   }
 
   function handleInput(value) {
     setInput(value)
-    updateUrl(value)
+    syncFilters({ input: value })
     if (value.length >= 2) {
       tmdbSearch(value)
     } else {
@@ -463,20 +947,143 @@ function SearchContent() {
     }
   }
 
+  const handleFilterChange = (name, value) => {
+    let updates = { page: 1 }
+    
+    if (name === 'type') {
+      setType(value)
+      updates.type = value
+    } else if (name === 'genre') {
+      setGenre(value)
+      updates.genre = value
+    } else if (name === 'year') {
+      setYear(value)
+      updates.year = value
+    } else if (name === 'lang') {
+      setLang(value)
+      updates.lang = value
+    }
+    
+    setCategory('')
+    updates.category = ''
+    setPage(1)
+    
+    setIsFilterActive(true)
+    syncFilters(updates)
+  }
+
+  const categoryMap = {
+    '🔥 Trending This Week': 'trending',
+    '📺 Popular TV Shows': 'tv',
+    '🌸 Anime & Animation Hits': 'anime',
+    '💥 Action & Adventure': 'action',
+    '🛸 Sci-Fi & Fantasy': 'scifi'
+  }
+
+  const categoryTitleMap = {
+    trending: '🔥 Trending This Week',
+    tv: '📺 Popular TV Shows',
+    anime: '🌸 Anime & Animation Hits',
+    action: '💥 Action & Adventure',
+    scifi: '🛸 Sci-Fi & Fantasy'
+  }
+
+  const handleMoreClick = (title) => {
+    const categoryKey = categoryMap[title] || 'trending'
+    setCategory(categoryKey)
+    setPage(1)
+    
+    setGenre('')
+    setYear('')
+    setLang('')
+    
+    setIsFilterActive(true)
+    syncFilters({
+      category: categoryKey,
+      page: 1,
+      genre: '',
+      year: '',
+      lang: ''
+    })
+  }
+
+  const handleReset = () => {
+    setType('all')
+    setGenre('')
+    setYear('')
+    setLang('')
+    setCategory('')
+    setPage(1)
+    
+    setIsFilterActive(false)
+    syncFilters({
+      type: 'all',
+      genre: '',
+      year: '',
+      lang: '',
+      category: '',
+      page: 1
+    })
+  }
+
+  const handlePageChange = (newPage) => {
+    setPage(newPage)
+    syncFilters({ page: newPage })
+  }
+
   const isTyping = input.length >= 2
-  const displayResults = tmdbSearchResults
-  const isLoading = tmdbSearchLoading
-  const displayError = tmdbSearchError?.message || tmdbSearchError
-  const sectionTitle = 'Search Results'
+  const isGridActive = isFilterActive
+
+  const { data: gridData, isLoading: isGridLoading, error: gridError } = useQuery({
+    queryKey: ['discoverGrid', { category, type, genre, year, lang, page }],
+    queryFn: () => fetchDiscoverGrid({ category, type, genre, year, lang, page }),
+    enabled: isGridActive && !isTyping,
+    staleTime: 60_000,
+  })
+
+  // Generate years list
+  const currentYear = new Date().getFullYear()
+  const years = []
+  for (let y = currentYear; y >= 2010; y--) {
+    years.push(String(y))
+  }
+  years.push('2005', '2000', '1995', '1990')
+
+  const selectStyle = {
+    appearance: 'none',
+    background: 'rgba(255, 255, 255, 0.05)',
+    border: '1px solid rgba(255, 255, 255, 0.08)',
+    borderRadius: '12px',
+    color: '#e2e8f0',
+    padding: '0.6rem 2.2rem 0.6rem 1rem',
+    fontSize: '0.85rem',
+    fontWeight: '700',
+    cursor: 'pointer',
+    outline: 'none',
+    transition: 'all 0.2s',
+    backgroundImage: `url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2.5' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E")`,
+    backgroundRepeat: 'no-repeat',
+    backgroundPosition: 'right 10px center',
+    backgroundSize: '14px',
+  }
 
   return (
     <div className="page-shell mobile-safe-bottom">
+      <style>{`
+        .grid-netflix-card:hover {
+          transform: scale(1.05) translateY(-4px);
+          box-shadow: 0 10px 22px rgba(0,0,0,0.6), 0 4px 12px rgba(124,58,237,0.3);
+        }
+        .grid-netflix-card:hover .card-overlay {
+          opacity: 1 !important;
+        }
+      `}</style>
 
       {/* Spacer top */}
       <div style={{ height: '0.75rem' }} />
 
       {/* Search Input at Top */}
-      <div style={{ position: 'relative', marginBottom: '1.5rem' }}>
+      <div style={{ position: 'relative', marginBottom: '1rem' }}>
         <Search size={18} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: '#475569', pointerEvents: 'none' }} />
         <input
           type="text"
@@ -495,46 +1102,114 @@ function SearchContent() {
             border: '1px solid rgba(255, 255, 255, 0.08)'
           }}
         />
-        {input && !isLoading && (
-          <button onClick={() => { setInput(''); clear(); updateUrl('') }} style={{
+        {input && !tmdbSearchLoading && (
+          <button onClick={() => { setInput(''); clear(); syncFilters({ input: '' }) }} style={{
             position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)',
             background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', padding: 4,
           }}><X size={18} /></button>
         )}
-        {isLoading && (
+        {tmdbSearchLoading && (
           <div style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)' }}>
             <LoadingSpinner size="sm" />
           </div>
         )}
       </div>
 
-      {!isTyping ? (
-        <NetflixDiscovery watchlist={watchlist} />
-      ) : (
+      {/* Filter Row - Hidden when typing search */}
+      {!isTyping && (
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '1.25rem', alignItems: 'center' }}>
+          <select style={selectStyle} value={type} onChange={e => handleFilterChange('type', e.target.value)}>
+            <option value="all" style={{ background: '#09090e' }}>All Types</option>
+            <option value="movie" style={{ background: '#09090e' }}>Movies</option>
+            <option value="tv" style={{ background: '#09090e' }}>TV Shows</option>
+            <option value="anime" style={{ background: '#09090e' }}>Anime</option>
+          </select>
+
+          <select style={selectStyle} value={genre} onChange={e => handleFilterChange('genre', e.target.value)}>
+            <option value="" style={{ background: '#09090e' }}>All Genres</option>
+            {TMDB_GENRES.map(g => (
+              <option key={g.id} value={g.id} style={{ background: '#09090e' }}>{g.name}</option>
+            ))}
+          </select>
+
+          <select style={selectStyle} value={year} onChange={e => handleFilterChange('year', e.target.value)}>
+            <option value="" style={{ background: '#09090e' }}>All Years</option>
+            {years.map(y => (
+              <option key={y} value={y} style={{ background: '#09090e' }}>{y}</option>
+            ))}
+          </select>
+
+          <select style={selectStyle} value={lang} onChange={e => handleFilterChange('lang', e.target.value)}>
+            <option value="" style={{ background: '#09090e' }}>All Regions</option>
+            <option value="en" style={{ background: '#09090e' }}>Hollywood (EN)</option>
+            <option value="hi" style={{ background: '#09090e' }}>Bollywood (HI)</option>
+            <option value="bn" style={{ background: '#09090e' }}>Bangla (BN)</option>
+            <option value="ko" style={{ background: '#09090e' }}>Korean (KO)</option>
+            <option value="ja" style={{ background: '#09090e' }}>Japanese (JA)</option>
+            <option value="es" style={{ background: '#09090e' }}>Spanish (ES)</option>
+            <option value="fr" style={{ background: '#09090e' }}>French (FR)</option>
+            <option value="de" style={{ background: '#09090e' }}>German (DE)</option>
+            <option value="it" style={{ background: '#09090e' }}>Italian (IT)</option>
+            <option value="zh" style={{ background: '#09090e' }}>Chinese (ZH)</option>
+            <option value="ru" style={{ background: '#09090e' }}>Russian (RU)</option>
+            <option value="tr" style={{ background: '#09090e' }}>Turkish (TR)</option>
+            <option value="ar" style={{ background: '#09090e' }}>Arabic (AR)</option>
+            <option value="pt" style={{ background: '#09090e' }}>Portuguese (PT)</option>
+            <option value="ta" style={{ background: '#09090e' }}>Tamil (TA)</option>
+            <option value="te" style={{ background: '#09090e' }}>Telugu (TE)</option>
+          </select>
+
+          {isGridActive && (
+            <button
+              onClick={handleReset}
+              style={{
+                background: 'rgba(239, 68, 68, 0.1)',
+                border: '1px solid rgba(239, 68, 68, 0.2)',
+                color: '#f87171',
+                padding: '0.55rem 1rem',
+                borderRadius: '12px',
+                fontSize: '0.85rem',
+                fontWeight: '700',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)' }}
+            >
+              Reset Filters
+            </button>
+          )}
+        </div>
+      )}
+
+      {isTyping ? (
         <>
           {/* Section heading */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.875rem' }}>
             <p style={{ margin: 0, fontSize: '0.75rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
-              {sectionTitle}
+              Search Results
             </p>
           </div>
 
           {/* Results */}
-          {isLoading ? (
+          {tmdbSearchLoading ? (
             <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem' }}>
               <LoadingSpinner size="md" />
             </div>
-          ) : displayError ? (
+          ) : tmdbSearchError ? (
             <div style={{ textAlign: 'center', padding: '3rem' }}>
               <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>📡</div>
               <p style={{ color: '#94a3b8', marginBottom: '0.35rem' }}>
                 TMDB search is unavailable.
               </p>
               <p style={{ color: '#64748b', margin: 0, fontSize: '0.875rem' }}>
-                {displayError}
+                {tmdbSearchError?.message || String(tmdbSearchError)}
               </p>
             </div>
-          ) : !displayResults || displayResults.length === 0 ? (
+          ) : !tmdbSearchResults || tmdbSearchResults.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '3rem' }}>
               <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>🎭</div>
               <p style={{ color: '#64748b' }}>
@@ -543,7 +1218,7 @@ function SearchContent() {
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              {displayResults.map((movie, i) => (
+              {tmdbSearchResults.map((movie, i) => (
                 <ResultRow
                   key={movie.tmdb_id || movie.id || i}
                   movie={movie}
@@ -555,6 +1230,86 @@ function SearchContent() {
             </div>
           )}
         </>
+      ) : isGridActive ? (
+        <>
+          {/* Grid Header */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', marginTop: '0.5rem' }}>
+            <div>
+              <h3 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 800, color: '#e2e8f0' }}>
+                {category ? categoryTitleMap[category] : `${type === 'tv' ? 'Filtered TV Shows' : 'Filtered Movies'}`}
+              </h3>
+              <p style={{ margin: '4px 0 0', fontSize: '0.75rem', color: '#64748b' }}>
+                Found matching titles
+              </p>
+            </div>
+            <button
+              onClick={handleReset}
+              style={{
+                background: 'rgba(255, 255, 255, 0.05)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: '8px',
+                color: '#94a3b8',
+                padding: '0.35rem 0.75rem',
+                fontSize: '0.75rem',
+                fontWeight: '700',
+                cursor: 'pointer',
+                transition: 'all 0.2s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)' }}
+              onMouseLeave={e => { e.currentTarget.style.color = '#94a3b8'; e.currentTarget.style.background = 'rgba(255,255,255,0.05)' }}
+            >
+              Back to Feed
+            </button>
+          </div>
+
+          {/* Grid Loading / Error / Content */}
+          {isGridLoading ? (
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))',
+              gap: '16px',
+              marginTop: '1rem',
+              marginBottom: '2rem'
+            }}>
+              {Array.from({ length: 12 }).map((_, idx) => (
+                <div key={idx} style={{ aspectRatio: '2/3', borderRadius: 12 }} className="shimmer" />
+              ))}
+            </div>
+          ) : gridError ? (
+            <div style={{ textAlign: 'center', padding: '3rem', color: '#64748b' }}>
+              <p style={{ fontSize: '2.5rem' }}>📡</p>
+              <p>Could not fetch items. Please try again.</p>
+              <p style={{ fontSize: '0.8rem', color: '#475569' }}>{gridError?.message || String(gridError)}</p>
+            </div>
+          ) : !gridData || gridData.results.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '3rem', color: '#64748b' }}>
+              <p style={{ fontSize: '2.5rem' }}>🎭</p>
+              <p>No titles matched your selected filters.</p>
+            </div>
+          ) : (
+            <>
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))',
+                gap: '16px',
+                marginTop: '1rem',
+                marginBottom: '1rem'
+              }}>
+                {gridData.results.map((movie) => (
+                  <GridCard key={movie.id} movie={movie} />
+                ))}
+              </div>
+
+              <Pagination
+                currentPage={page}
+                totalPages={gridData.totalPages}
+                onPageChange={handlePageChange}
+              />
+            </>
+          )}
+        </>
+      ) : (
+        <NetflixDiscovery watchlist={watchlist} onMoreClick={handleMoreClick} />
       )}
 
     </div>

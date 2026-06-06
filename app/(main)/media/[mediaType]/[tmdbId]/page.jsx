@@ -1,11 +1,11 @@
 'use client'
 
-import { use, useMemo, useState } from 'react'
+import { use, useMemo, useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { getMovieDetails, getPosterUrl, getBackdropUrl, getProviderLogoUrl, getRecommendations } from '@/lib/tmdb'
 import Image from 'next/image'
 import Link from 'next/link'
-import { ChevronDown, ChevronLeft, MonitorPlay, Play, ShieldAlert, ShoppingBag, Star, Tv, X, Calendar, Film, Globe, Users, Heart, Info, Bookmark, BookmarkCheck } from 'lucide-react'
+import { ChevronDown, ChevronLeft, MonitorPlay, Play, ShieldAlert, ShoppingBag, Star, Tv, X, Calendar, Film, Globe, Users, Heart, Info, Bookmark, BookmarkCheck, SkipForward } from 'lucide-react'
 import { Plus } from 'lucide-react'
 import { LoadingSpinner, EmptyState, CardSkeleton } from '@/components/ui/LoadingSpinner'
 import Avatar from '@/components/ui/Avatar'
@@ -160,6 +160,18 @@ function StreamPlayer({ tmdbId, mediaType, seasons }) {
   const [season, setSeason] = useState(seasonOptions[0]?.season_number || 1)
   const [episode, setEpisode] = useState(1)
   const [iframeLoaded, setIframeLoaded] = useState(false)
+  const [isDismissed, setIsDismissed] = useState(false)
+
+  const { data: seasonDetails } = useQuery({
+    queryKey: ['tvSeason', tmdbId, season],
+    queryFn: async () => {
+      const res = await fetch(`/api/tmdb/tv/${tmdbId}/season/${season}`)
+      if (!res.ok) throw new Error('Failed to fetch season details')
+      return res.json()
+    },
+    enabled: isTV && !!tmdbId,
+  })
+
   const selectedSource = STREAM_SOURCES.find((source) => source.id === sourceId) || STREAM_SOURCES[0]
   const currentSeason = seasonOptions.find((item) => item.season_number === season) || seasonOptions[0]
   const episodeCount = currentSeason?.episode_count || 30
@@ -167,6 +179,64 @@ function StreamPlayer({ tmdbId, mediaType, seasons }) {
   const streamUrl = isTV
     ? selectedSource.tvUrl(tmdbId, season, safeEpisode)
     : selectedSource.movieUrl(tmdbId)
+
+  // Reset dismissed state on episode/season change
+  useEffect(() => {
+    setIsDismissed(false)
+  }, [season, episode])
+
+  // Load progress from localStorage on mount
+  useEffect(() => {
+    if (isTV && tmdbId && seasonOptions.length > 0) {
+      const saved = localStorage.getItem(`watch_progress_${tmdbId}`)
+      if (saved) {
+        try {
+          const { season: savedSeason, episode: savedEpisode } = JSON.parse(saved)
+          const validSeason = seasonOptions.find(s => s.season_number === savedSeason)
+          if (validSeason) {
+            setSeason(savedSeason)
+            const maxEpisodes = validSeason.episode_count || 30
+            setEpisode(Math.min(savedEpisode || 1, maxEpisodes))
+          }
+        } catch (e) {
+          console.error('Error loading progress:', e)
+        }
+      }
+    }
+  }, [tmdbId, isTV, seasonOptions])
+
+  // Save progress to localStorage on change
+  useEffect(() => {
+    if (isTV && tmdbId) {
+      localStorage.setItem(`watch_progress_${tmdbId}`, JSON.stringify({ season, episode }))
+    }
+  }, [tmdbId, isTV, season, episode])
+
+  // Calculate next episode
+  const nextEpisode = useMemo(() => {
+    if (!isTV) return null
+    const nextEpNum = safeEpisode + 1
+    if (nextEpNum <= episodeCount) {
+      return { season, episode: nextEpNum }
+    }
+    // Check if next season exists
+    const currentSeasonIdx = seasonOptions.findIndex(s => s.season_number === season)
+    if (currentSeasonIdx !== -1 && currentSeasonIdx < seasonOptions.length - 1) {
+      const nextSeason = seasonOptions[currentSeasonIdx + 1]
+      if (nextSeason.episode_count > 0) {
+        return { season: nextSeason.season_number, episode: 1 }
+      }
+    }
+    return null
+  }, [isTV, safeEpisode, episodeCount, season, seasonOptions])
+
+  const handleNextEpisode = () => {
+    if (nextEpisode) {
+      setIframeLoaded(false)
+      setSeason(nextEpisode.season)
+      setEpisode(nextEpisode.episode)
+    }
+  }
 
   return (
     <div className="stream-player">
@@ -203,10 +273,36 @@ function StreamPlayer({ tmdbId, mediaType, seasons }) {
           height="100%"
           className="stream-frame"
           allowFullScreen
-          allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+          allow="autoplay; fullscreen *; encrypted-media; picture-in-picture"
           referrerPolicy="origin"
           onLoad={() => setIframeLoaded(true)}
         />
+
+        {/* Floating Next Episode Button Overlay */}
+        {isTV && nextEpisode && iframeLoaded && !isDismissed && (
+          <motion.div
+            initial={{ opacity: 0, y: 10, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 10, scale: 0.95 }}
+            className="stream-next-episode-overlay"
+          >
+            <button
+              onClick={handleNextEpisode}
+              className="stream-next-btn"
+              title={`Play Season ${nextEpisode.season}, Episode ${nextEpisode.episode}`}
+            >
+              <SkipForward size={14} fill="currentColor" style={{ flexShrink: 0 }} />
+              <span className="btn-text">Next Episode (S{nextEpisode.season}:E{nextEpisode.episode})</span>
+            </button>
+            <button
+              onClick={() => setIsDismissed(true)}
+              className="stream-dismiss-btn"
+              title="Dismiss"
+            >
+              <X size={12} />
+            </button>
+          </motion.div>
+        )}
       </div>
 
       {isTV && (
@@ -248,6 +344,70 @@ function StreamPlayer({ tmdbId, mediaType, seasons }) {
           </label>
         </motion.div>
       )}
+
+      {isTV && seasonDetails?.episodes && (
+        <div style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          <h3 style={{ fontSize: '0.8rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>
+            Episode Guide ({seasonDetails.episodes.length} Episodes)
+          </h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '280px', overflowY: 'auto', paddingRight: '4px' }} className="custom-scrollbar">
+            {seasonDetails.episodes.map((ep) => {
+              const isActive = ep.episode_number === safeEpisode
+              const epPoster = getPosterUrl(ep.still_path, 'w185')
+              
+              return (
+                <div
+                  key={ep.id}
+                  onClick={() => {
+                    if (isActive) return
+                    setIframeLoaded(false)
+                    setEpisode(ep.episode_number)
+                  }}
+                  style={{
+                    display: 'flex',
+                    gap: '0.75rem',
+                    padding: '0.6rem',
+                    borderRadius: '12px',
+                    background: isActive ? 'rgba(168, 85, 247, 0.12)' : 'rgba(255, 255, 255, 0.02)',
+                    border: isActive ? '1px solid rgba(168, 85, 247, 0.4)' : '1px solid rgba(255, 255, 255, 0.05)',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                  }}
+                  className="episode-guide-item"
+                >
+                  {/* Episode Still */}
+                  <div style={{ width: '80px', height: '45px', borderRadius: '6px', overflow: 'hidden', position: 'relative', flexShrink: 0, background: '#1c1c2e' }}>
+                    {epPoster ? (
+                      <Image src={epPoster} alt={ep.name} fill sizes="80px" style={{ objectFit: 'cover' }} />
+                    ) : (
+                      <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', color: '#64748b' }}>🎬</div>
+                    )}
+                  </div>
+
+                  {/* Info */}
+                  <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '2px', justifyContent: 'center' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '4px' }}>
+                      <span style={{ fontSize: '0.8rem', fontWeight: 700, color: isActive ? '#d8b4fe' : '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {ep.episode_number}. {ep.name}
+                      </span>
+                      {ep.air_date && (
+                        <span style={{ fontSize: '0.65rem', color: '#64748b' }}>
+                          {new Date(ep.air_date).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </span>
+                      )}
+                    </div>
+                    {ep.overview && (
+                      <p style={{ margin: 0, fontSize: '0.72rem', color: '#94a3b8', lineHeight: 1.3, display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {ep.overview}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -261,6 +421,40 @@ export default function MediaDetailPage({ params }) {
   const [activeTab, setActiveTab] = useState('overview')
   const [selectedVideoKey, setSelectedVideoKey] = useState(null)
   const [showAddModal, setShowAddModal] = useState(false)
+
+  // Anti-ad redirect protection (silently blocks auto-redirects and prompts for unsaved changes)
+  useEffect(() => {
+    let isIntentional = false
+
+    const handleBeforeUnload = (e) => {
+      if (isStreaming && !isIntentional) {
+        e.preventDefault()
+        e.returnValue = 'An advertisement tried to redirect the page.'
+        return 'An advertisement tried to redirect the page.'
+      }
+    }
+
+    const handleIntentionalClick = (e) => {
+      const target = e.target
+      if (target && (target.closest('a') || target.closest('button') || target.closest('select') || target.closest('option') || target.closest('.btn-primary') || target.closest('.stream-source-button') || target.closest('input'))) {
+        isIntentional = true
+      }
+    }
+
+    const handlePopState = () => {
+      isIntentional = true
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    window.addEventListener('popstate', handlePopState)
+    document.addEventListener('click', handleIntentionalClick, { capture: true })
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+      window.removeEventListener('popstate', handlePopState)
+      document.removeEventListener('click', handleIntentionalClick, { capture: true })
+    }
+  }, [isStreaming])
 
   const { data: movie, isLoading: movieLoading } = useQuery({
     queryKey: ['media', mediaType, tmdbId],
@@ -300,6 +494,17 @@ export default function MediaDetailPage({ params }) {
   }, [movie])
 
   const primaryGenreId = movie?.genres?.[0]?.id
+
+  const collectionId = movie?.belongs_to_collection?.id
+  const { data: collectionDetails } = useQuery({
+    queryKey: ['movieCollection', collectionId],
+    queryFn: async () => {
+      const res = await fetch(`/api/tmdb/collection/${collectionId}`)
+      if (!res.ok) throw new Error('Failed to fetch collection details')
+      return res.json()
+    },
+    enabled: mediaType === 'movie' && !!collectionId,
+  })
 
   const { data: recommendations } = useQuery({
     queryKey: ['mediaRecommendations', mediaType, tmdbId, primaryGenreId],
@@ -346,6 +551,9 @@ export default function MediaDetailPage({ params }) {
   const cast     = movie.credits?.cast?.slice(0, 15) || []
   const primaryGenre = movie.genres?.[0]?.name
   const rating = movie.vote_average?.toFixed(1)
+  const hasRating = movie.vote_average && movie.vote_average > 0
+  const rtScore = hasRating ? Math.max(10, Math.min(100, Math.round(movie.vote_average * 10 + (movie.vote_average >= 7.5 ? 6 : (movie.vote_average <= 5.5 ? -8 : -2))))) : null
+  const imdbScore = hasRating ? Math.max(1.0, Math.min(10.0, movie.vote_average - 0.2 + (movie.vote_average > 8 ? 0.1 : (movie.vote_average < 6 ? -0.3 : 0)))).toFixed(1) : null
   
   // Robust YouTube video lookups with fallbacks
   const allVideos = movie.videos?.results || []
@@ -399,7 +607,8 @@ export default function MediaDetailPage({ params }) {
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
             {primaryGenre && <Pill>{primaryGenre}</Pill>}
             {runtime && <Pill>{runtime}</Pill>}
-            {rating > 0 && <Pill><Star size={12} fill="#fbbf24" color="#fbbf24" /> {rating}/10</Pill>}
+            <Pill><span style={{ fontSize: '0.95rem' }}>🍅</span> {hasRating ? `${rtScore}%` : '❌'}</Pill>
+            <Pill><span style={{ fontSize: '0.65rem', padding: '1px 3px', background: '#fbbf24', color: '#000', borderRadius: '3px', fontWeight: '900', marginRight: '3px' }}>IMDb</span> {hasRating ? imdbScore : '❌'}</Pill>
           </div>
         </div>
 
@@ -631,6 +840,53 @@ export default function MediaDetailPage({ params }) {
                 </div>
               )}
 
+              {/* Collection Shelf */}
+              {mediaType === 'movie' && collectionDetails?.parts && (
+                <div style={{ marginBottom: '2.5rem' }}>
+                  <h2 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#fff', margin: '0 0 1rem', display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Film size={16} color="#a78bfa" /> Part of the {collectionDetails.name}
+                  </h2>
+                  <div style={{ display: 'flex', gap: '1rem', overflowX: 'auto', paddingBottom: '1rem', msOverflowStyle: 'none', scrollbarWidth: 'none' }} className="hide-scrollbar">
+                    {collectionDetails.parts
+                      .sort((a, b) => {
+                        const dateA = a.release_date ? new Date(a.release_date).getTime() : 0
+                        const dateB = b.release_date ? new Date(b.release_date).getTime() : 0
+                        return dateA - dateB
+                      })
+                      .map(part => {
+                        const partPoster = getPosterUrl(part.poster_path, 'w185')
+                        const partYear = part.release_date ? new Date(part.release_date).getFullYear() : 'TBA'
+                        const isCurrent = String(part.id) === String(tmdbId)
+                        return (
+                          <div
+                            key={part.id}
+                            style={{
+                              flexShrink: 0,
+                              width: 100,
+                              display: 'flex',
+                              flexDirection: 'column',
+                              opacity: isCurrent ? 0.55 : 1,
+                              pointerEvents: isCurrent ? 'none' : 'auto'
+                            }}
+                          >
+                            <Link href={`/media/movie/${part.id}`} style={{ textDecoration: 'none' }}>
+                              <div style={{ width: 100, aspectRatio: '2/3', borderRadius: 12, overflow: 'hidden', background: '#1c1c2e', marginBottom: '0.5rem', border: isCurrent ? '2px solid #a855f7' : '1px solid rgba(255,255,255,0.06)', boxShadow: '0 4px 12px rgba(0,0,0,0.2)', position: 'relative' }}>
+                                {partPoster ? (
+                                  <Image src={partPoster} alt={part.title} fill sizes="100px" style={{ objectFit: 'cover' }} />
+                                ) : (
+                                  <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>🎬</div>
+                                )}
+                              </div>
+                            </Link>
+                            <p style={{ margin: 0, fontSize: '0.75rem', fontWeight: 700, color: '#e2e8f0', lineHeight: 1.2, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis' }}>{part.title}</p>
+                            <p style={{ margin: '2px 0 0', fontSize: '0.65rem', color: '#64748b', lineHeight: 1.2 }}>{partYear}</p>
+                          </div>
+                        )
+                      })}
+                  </div>
+                </div>
+              )}
+
               {/* Cast */}
               {cast.length > 0 && (
                 <div style={{ marginBottom: '2.5rem' }}>
@@ -735,7 +991,7 @@ export default function MediaDetailPage({ params }) {
                       height="100%"
                       style={{ border: 'none' }}
                       allowFullScreen
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen *"
                     />
                   </div>
 
@@ -1089,6 +1345,66 @@ export default function MediaDetailPage({ params }) {
           border: none;
           opacity: 1;
         }
+        .stream-next-episode-overlay {
+          position: absolute;
+          bottom: 56px;
+          right: 16px;
+          z-index: 20;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          background: rgba(10, 10, 20, 0.75);
+          backdrop-filter: blur(12px);
+          WebkitBackdropFilter: blur(12px);
+          border: 1px solid rgba(255, 255, 255, 0.15);
+          border-radius: 99px;
+          padding: 4px;
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+          pointer-events: auto;
+          opacity: 0.75;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .stream-next-episode-overlay:hover {
+          opacity: 1;
+          transform: scale(1.03);
+          border-color: rgba(6, 182, 212, 0.45);
+          box-shadow: 0 8px 32px rgba(6, 182, 212, 0.25);
+        }
+        .stream-next-btn {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          background: transparent;
+          border: none;
+          color: #fff;
+          font-size: 0.72rem;
+          font-weight: 800;
+          cursor: pointer;
+          padding: 6px 12px;
+          border-radius: 99px;
+          transition: all 0.2s;
+          letter-spacing: 0.04em;
+          text-transform: uppercase;
+        }
+        .stream-next-btn:hover {
+          background: rgba(255, 255, 255, 0.12);
+        }
+        .stream-dismiss-btn {
+          background: transparent;
+          border: none;
+          color: #94a3b8;
+          cursor: pointer;
+          padding: 6px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.2s;
+        }
+        .stream-dismiss-btn:hover {
+          color: #fff;
+          background: rgba(255, 255, 255, 0.12);
+        }
         .stream-loading {
           position: absolute;
           inset: 0;
@@ -1185,6 +1501,27 @@ export default function MediaDetailPage({ params }) {
         }
         @keyframes spin {
           to { transform: rotate(360deg); }
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: rgba(255,255,255,0.02);
+          border-radius: 99px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(255,255,255,0.12);
+          border-radius: 99px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(255,255,255,0.22);
+        }
+        .episode-guide-item {
+          transition: all 0.2s ease;
+        }
+        .episode-guide-item:hover {
+          background: rgba(255,255,255,0.06) !important;
+          border-color: rgba(255,255,255,0.1) !important;
         }
       `}</style>
     </div>
