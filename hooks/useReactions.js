@@ -142,9 +142,9 @@ export function useDirectWatchlist() {
       if (!user) throw new Error('Not authenticated')
       
       const genreMap = { 28: 'Action', 35: 'Comedy', 18: 'Drama', 27: 'Horror', 878: 'Sci-Fi', 10749: 'Romance', 53: 'Thriller', 16: 'Animation', 80: 'Crime', 12: 'Adventure', 14: 'Fantasy', 99: 'Documentary' }
-      const genres = (movie.genre_ids || []).map(id => genreMap[id] || 'Other')
+      const genres = movie.genres || (movie.genre_ids || []).map(id => genreMap[id] || 'Other')
       const releaseDate = movie.release_date || movie.first_air_date
-      const releaseYear = releaseDate ? parseInt(releaseDate.split('-')[0]) : null
+      const releaseYear = movie.release_year || (releaseDate ? parseInt(releaseDate.split('-')[0]) : null)
 
       const payload = {
         tmdb_id: movie.id,

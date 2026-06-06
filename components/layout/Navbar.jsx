@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { Home, Search, Bookmark, User, Plus, LogOut, History } from 'lucide-react'
+import { Home, Search, Bookmark, User, Plus, LogOut, Tv } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import Avatar from '@/components/ui/Avatar'
 import NotificationsDropdown from '@/components/layout/NotificationsDropdown'
@@ -19,7 +19,7 @@ export default function Navbar({ onAddClick }) {
     { href: '/watchlist', icon: Bookmark, label: 'Watchlist' },
     { href: '/', icon: Search, label: 'Search' },
     { href: profileHref, icon: User, label: 'Profile' },
-    { href: '/history', icon: History, label: 'History' },
+    { href: '/anime', icon: Tv, label: 'Anime' },
   ]
 
   const isActive = (href) => {
