@@ -42,12 +42,8 @@ export async function GET(request, { params }) {
 
     return NextResponse.json(data, {
       headers: {
-        'Cache-Control': isSearchEndpoint
-          ? 'no-store, max-age=0'
-          : 's-maxage=3600, stale-while-revalidate=86400',
-        'Netlify-CDN-Cache-Control': isSearchEndpoint
-          ? 'no-store'
-          : 's-maxage=3600, stale-while-revalidate=86400',
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Netlify-CDN-Cache-Control': 'no-store',
       },
     })
   } catch (error) {

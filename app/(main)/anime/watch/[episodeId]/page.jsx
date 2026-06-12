@@ -7,6 +7,7 @@ import { ChevronLeft, Play, Tv, Users, Heart, Info, Calendar, Sparkles, X, SkipF
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { addToWatchHistory } from '@/lib/watch-history'
 
 // Custom loader/ui
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
@@ -77,6 +78,19 @@ export default function AnimeWatchPage({ params }) {
       setActiveServer(matched || watchData.servers[0])
     }
   }, [watchData])
+
+  // Save watch progress to history list
+  useEffect(() => {
+    if (anilistId && gogoInfo) {
+      addToWatchHistory({
+        id: anilistId,
+        title: gogoInfo.title,
+        poster_path: gogoInfo.image,
+        media_type: 'anime',
+        progress: { epNum, episodeId }
+      })
+    }
+  }, [anilistId, gogoInfo, epNum, episodeId])
 
   // Save server preference
   const handleServerChange = (server) => {

@@ -16,6 +16,7 @@ import { useRouter } from 'next/navigation'
 import { useDirectWatchlist } from '@/hooks/useReactions'
 import { authFetch } from '@/lib/auth-fetch'
 import dynamic from 'next/dynamic'
+import { addToWatchHistory } from '@/lib/watch-history'
 
 const AddMovieModal = dynamic(() => import('@/components/movie/AddMovieModal'), { ssr: false })
 
@@ -144,7 +145,7 @@ function ReviewMeta({ post }) {
   )
 }
 
-function StreamPlayer({ tmdbId, mediaType, seasons }) {
+function StreamPlayer({ tmdbId, mediaType, seasons, movie }) {
   const isTV = mediaType === 'tv'
   const seasonOptions = useMemo(() => {
     const available = (seasons || [])
@@ -211,6 +212,19 @@ function StreamPlayer({ tmdbId, mediaType, seasons }) {
       localStorage.setItem(`watch_progress_${tmdbId}`, JSON.stringify({ season, episode }))
     }
   }, [tmdbId, isTV, season, episode])
+
+  // Save watch progress to history list
+  useEffect(() => {
+    if (tmdbId && movie) {
+      addToWatchHistory({
+        id: tmdbId,
+        title: movie.title || movie.name,
+        poster_path: movie.poster_path,
+        media_type: mediaType,
+        progress: isTV ? { season, episode } : {}
+      })
+    }
+  }, [tmdbId, mediaType, isTV, season, episode, movie])
 
   // Calculate next episode
   const nextEpisode = useMemo(() => {
@@ -631,7 +645,7 @@ export default function MediaDetailPage({ params }) {
                   <X size={13} /> Close Player
                 </button>
               </div>
-              <StreamPlayer tmdbId={tmdbId} mediaType={mediaType} seasons={movie.seasons} />
+              <StreamPlayer tmdbId={tmdbId} mediaType={mediaType} seasons={movie.seasons} movie={movie} />
             </motion.div>
           ) : (
             <motion.div

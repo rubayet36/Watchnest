@@ -3,11 +3,10 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { Home, Search, Bookmark, User, Plus, LogOut, Tv } from 'lucide-react'
+import { Home, Search, Bookmark, User, Plus, LogOut, Tv, History } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import Avatar from '@/components/ui/Avatar'
 import NotificationsDropdown from '@/components/layout/NotificationsDropdown'
-import ThemeToggle from '@/components/ui/ThemeToggle'
 
 export default function Navbar({ onAddClick }) {
   const pathname = usePathname()
@@ -57,7 +56,14 @@ export default function Navbar({ onAddClick }) {
         </button>
 
         <div className="wn-theme-row">
-          <ThemeToggle />
+          <Link
+            href="/history"
+            className={`wn-nav-link ${isActive('/history') ? 'is-active' : ''}`}
+            style={{ width: '100%', gap: '10px' }}
+          >
+            <History size={18} />
+            <span>History</span>
+          </Link>
         </div>
 
         {profile && (
@@ -84,7 +90,9 @@ export default function Navbar({ onAddClick }) {
           <button onClick={onAddClick} className="wn-mobile-add" aria-label="Add movie">
             <Plus size={18} />
           </button>
-          <ThemeToggle compact />
+          <Link href="/history" className="wn-mobile-history" aria-label="Watch history">
+            <History size={18} />
+          </Link>
           {user && <NotificationsDropdown />}
           {user && (
             <Link href={profileHref} aria-label="Profile">
@@ -288,6 +296,25 @@ export default function Navbar({ onAddClick }) {
           background: linear-gradient(135deg, #22d3ee, #8b5cf6 58%, #fb7185);
           color: #fff;
           cursor: pointer;
+        }
+
+        .wn-mobile-history {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 38px;
+          height: 38px;
+          border: 1px solid var(--control-border);
+          border-radius: 13px;
+          background: var(--control-bg);
+          color: var(--text);
+          cursor: pointer;
+          transition: background 0.15s, color 0.15s;
+        }
+
+        .wn-mobile-history:hover {
+          background: rgba(255, 255, 255, 0.08);
+          color: var(--accent);
         }
 
         .wn-mobile-nav {

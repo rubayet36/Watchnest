@@ -2,10 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Camera, Moon, Save, Sun, Trash2, Upload } from 'lucide-react'
+import { Camera, Save, Trash2, Upload } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { useAuth } from '@/context/AuthContext'
-import { useTheme } from '@/context/ThemeContext'
 import Avatar from '@/components/ui/Avatar'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import PushNotificationControl from '@/components/pwa/PushNotificationControl'
@@ -13,7 +12,7 @@ import { createClient } from '@/lib/supabase/client'
 
 export default function SettingsPage() {
   const { user, profile, updateProfile, loading, signOut } = useAuth()
-  const { theme, setTheme } = useTheme()
+  // No theme switcher needed - dark mode only
   const [name, setName] = useState('')
   const [bio, setBio] = useState('')
   const [avatarUrl, setAvatarUrl] = useState('')
@@ -157,26 +156,7 @@ export default function SettingsPage() {
         <div className="settings-divider" />
 
         <div>
-          <label className="settings-label">Appearance</label>
-          <div className="theme-segment" role="group" aria-label="Choose color theme">
-            <button
-              type="button"
-              onClick={() => setTheme('dark')}
-              className={theme === 'dark' ? 'is-active' : ''}
-            >
-              <Moon size={16} />
-              Dark
-            </button>
-            <button
-              type="button"
-              onClick={() => setTheme('light')}
-              className={theme === 'light' ? 'is-active' : ''}
-            >
-              <Sun size={16} />
-              White
-            </button>
-          </div>
-          <Link href="/shader" className="settings-inline-link">Open shader preview</Link>
+          <Link href="/shader" className="settings-inline-link" style={{ display: 'inline-block' }}>Open shader preview</Link>
         </div>
 
         <PushNotificationControl />
