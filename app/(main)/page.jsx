@@ -419,8 +419,8 @@ function NetflixDiscovery({ watchlist, onMoreClick }) {
               paddingLeft: '2px', paddingRight: '2px'
             }}
           >
-            {row.items?.map(movie => (
-              <NetflixCard key={movie.id} movie={movie} />
+            {row.items?.map((movie, index) => (
+              <NetflixCard key={`${movie.id}-${index}`} movie={movie} />
             ))}
           </div>
         </div>
@@ -1295,8 +1295,8 @@ function SearchContent() {
                 marginTop: '1rem',
                 marginBottom: '1rem'
               }}>
-                {gridData.results.map((movie) => (
-                  <GridCard key={movie.id} movie={movie} />
+                {gridData.results.map((movie, index) => (
+                  <GridCard key={`${movie.id}-${index}`} movie={movie} />
                 ))}
               </div>
 

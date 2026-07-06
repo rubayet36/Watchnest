@@ -611,7 +611,7 @@ export default function MediaDetailPage({ params }) {
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(7,9,20,0) 0%, #070914 100%)' }} />
       </div>
 
-      <div style={{ position: 'relative', zIndex: 10, maxWidth: 640, margin: '0 auto', padding: '1.25rem' }}>
+      <div style={{ position: 'relative', zIndex: 10, maxWidth: isStreaming ? 1200 : 640, margin: '0 auto', padding: '1.25rem', transition: 'max-width 0.3s ease-in-out' }}>
         
         {/* Top Floating Nav */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', paddingTop: 'env(safe-area-inset-top)' }}>
@@ -754,6 +754,8 @@ export default function MediaDetailPage({ params }) {
             </motion.div>
           )}
         </AnimatePresence>
+
+        <div style={{ maxWidth: 640, margin: '0 auto' }}>
 
         {/* Title Block */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }} style={{ marginBottom: '1.75rem', marginTop: '1.5rem' }}>
@@ -1260,6 +1262,8 @@ export default function MediaDetailPage({ params }) {
             </motion.div>
           )}
         </AnimatePresence>
+
+        </div>
 
         {/* Quick-add modal */}
         <AnimatePresence>

@@ -160,7 +160,7 @@ export default function AnimeWatchPage({ params }) {
   return (
     <div style={{ position: 'relative', minHeight: '100dvh', background: '#070914', overflowX: 'hidden', color: '#fff' }}>
       
-      <div style={{ position: 'relative', zIndex: 10, maxWidth: 1000, margin: '0 auto', padding: '1.25rem' }}>
+      <div style={{ position: 'relative', zIndex: 10, maxWidth: 1200, margin: '0 auto', padding: '1.25rem' }}>
         
         {/* Top Floating Nav */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', paddingTop: 'env(safe-area-inset-top)' }}>
