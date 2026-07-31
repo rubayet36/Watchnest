@@ -26,7 +26,7 @@ export async function GET(request, { params }) {
     // Fetch user's posts
     const { data: posts, error: postsError } = await supabase
       .from('posts')
-      .select(`id, tmdb_id, title, poster_path, genres, tmdb_rating, release_year, category, personal_note, created_at, reactions(reaction_type, user_id), saves(user_id)`)
+      .select(`id, tmdb_id, title, poster_path, genres, tmdb_rating, release_year, category, personal_note, media_type, created_at, reactions(reaction_type, user_id), saves(user_id)`)
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
 
