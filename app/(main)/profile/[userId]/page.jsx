@@ -59,6 +59,8 @@ export default function ProfilePage({ params }) {
   )
 
   const totalMovies = posts?.length || 0
+  const movieCount = posts?.filter(p => p.media_type === 'movie').length || 0
+  const showCount = posts?.filter(p => p.media_type === 'tv').length || 0
   const genres = posts?.flatMap(p => p.genres || []) || []
   const genreCounts = genres.reduce((acc, g) => ({ ...acc, [g]: (acc[g] || 0) + 1 }), {})
   const topGenre = Object.entries(genreCounts).sort((a, b) => b[1] - a[1])[0]?.[0]
@@ -263,7 +265,7 @@ export default function ProfilePage({ params }) {
         }}>
           {[
             { label: 'LOGGED', value: totalMovies, color: '#F2EFE9' },
-            { label: 'WATCH TIME', value: `${totalMovies * 2}h`, color: '#F2EFE9' },
+            { label: 'MOVIES', value: movieCount || '—', color: '#F2EFE9' },
             { label: 'TOP GENRE', value: topGenre || '—', color: '#FF6A3D' },
             { label: 'RATING', value: avgRating, color: '#E8B23D', onClick: () => setShowReviews(true) },
           ].map(({ label, value, color, onClick }) => (

@@ -306,11 +306,11 @@ function PartnersTab({ currentUserId }) {
 
   const connectedIds = new Set([
     currentUserId,
-    ...partners.map(p => p.id),
-    ...received.map(r => r.sender.id),
-    ...sent.map(s => s.receiver.id),
+    ...partners.map(p => p?.id).filter(Boolean),
+    ...received.map(r => r?.sender?.id).filter(Boolean),
+    ...sent.map(s => s?.receiver?.id).filter(Boolean),
   ])
-  const others = users.filter(u => !connectedIds.has(u.id))
+  const others = users.filter(u => u?.id && !connectedIds.has(u.id))
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:'1.75rem' }}>
@@ -325,25 +325,28 @@ function PartnersTab({ currentUserId }) {
             </p>
           </div>
           <div style={{ display:'flex', flexDirection:'column', gap:'0.625rem' }}>
-            {received.map(r => (
-              <motion.div key={r.id} initial={{ opacity:0, y:4 }} animate={{ opacity:1, y:0 }} style={cardStyle}>
-                <Avatar user={r.sender} size={42}/>
-                <div style={{ flex:1, minWidth:0 }}>
-                  <p style={{ margin:0, fontWeight:700, color:'#F2EFE9' }}>{r.sender.name || r.sender.username}</p>
-                  <p style={{ margin:'2px 0 0', fontSize:'0.75rem', color:'#9A9CA3' }}>Wants to share movie picks with you</p>
-                </div>
-                <div style={{ display:'flex', gap:6 }}>
-                  <button onClick={() => respondRequest.mutate({ followId: r.id, action: 'accept' })}
-                    style={{ display:'flex', alignItems:'center', gap:4, padding:'0.4rem 0.85rem', borderRadius:10, fontSize:'0.78rem', fontWeight:800, cursor:'pointer', border:'none', fontFamily:"'JetBrains Mono', monospace", background:'linear-gradient(135deg, #FF7D4D, #FF6A3D)', color:'#1a0a04' }}>
-                    <Check size={13}/> Accept
-                  </button>
-                  <button onClick={() => respondRequest.mutate({ followId: r.id, action: 'decline' })}
-                    style={{ display:'flex', alignItems:'center', gap:4, padding:'0.4rem 0.75rem', borderRadius:10, fontSize:'0.78rem', fontWeight:700, cursor:'pointer', border:'none', fontFamily:"'JetBrains Mono', monospace", background:'rgba(255,255,255,0.06)', color:'#9A9CA3' }}>
-                    <X size={13}/> Decline
-                  </button>
-                </div>
-              </motion.div>
-            ))}
+            {received.filter(r => r?.sender).map(r => {
+              const sender = r.sender
+              return (
+                <motion.div key={r.id} initial={{ opacity:0, y:4 }} animate={{ opacity:1, y:0 }} style={cardStyle}>
+                  <Avatar user={sender} size={42}/>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <p style={{ margin:0, fontWeight:700, color:'#F2EFE9' }}>{sender.name || sender.username || 'User'}</p>
+                    <p style={{ margin:'2px 0 0', fontSize:'0.75rem', color:'#9A9CA3' }}>Wants to share movie picks with you</p>
+                  </div>
+                  <div style={{ display:'flex', gap:6 }}>
+                    <button onClick={() => respondRequest.mutate({ followId: r.id, action: 'accept' })}
+                      style={{ display:'flex', alignItems:'center', gap:4, padding:'0.4rem 0.85rem', borderRadius:10, fontSize:'0.78rem', fontWeight:800, cursor:'pointer', border:'none', fontFamily:"'JetBrains Mono', monospace", background:'linear-gradient(135deg, #FF7D4D, #FF6A3D)', color:'#1a0a04' }}>
+                      <Check size={13}/> Accept
+                    </button>
+                    <button onClick={() => respondRequest.mutate({ followId: r.id, action: 'decline' })}
+                      style={{ display:'flex', alignItems:'center', gap:4, padding:'0.4rem 0.75rem', borderRadius:10, fontSize:'0.78rem', fontWeight:700, cursor:'pointer', border:'none', fontFamily:"'JetBrains Mono', monospace", background:'rgba(255,255,255,0.06)', color:'#9A9CA3' }}>
+                      <X size={13}/> Decline
+                    </button>
+                  </div>
+                </motion.div>
+              )
+            })}
           </div>
         </section>
       )}
@@ -361,12 +364,12 @@ function PartnersTab({ currentUserId }) {
           </div>
         ) : (
           <div style={{ display:'flex', flexDirection:'column', gap:'0.625rem' }}>
-            {partners.map(p => (
+            {partners.filter(p => p?.id).map(p => (
               <motion.div key={p.id} initial={{ opacity:0, y:4 }} animate={{ opacity:1, y:0 }} style={cardStyle}>
                 <Avatar user={p} size={42}/>
                 <div style={{ flex:1, minWidth:0 }}>
-                  <p style={{ margin:0, fontWeight:700, color:'#F2EFE9' }}>{p.name || p.username}</p>
-                  <p style={{ margin:'2px 0 0', fontSize:'0.75rem', color:'#9A9CA3' }}>@{p.username}</p>
+                  <p style={{ margin:0, fontWeight:700, color:'#F2EFE9' }}>{p.name || p.username || 'User'}</p>
+                  <p style={{ margin:'2px 0 0', fontSize:'0.75rem', color:'#9A9CA3' }}>@{p.username || 'user'}</p>
                 </div>
                 <button onClick={() => setViewingPartner(p)}
                   style={{ display:'flex', alignItems:'center', gap:5, padding:'0.4rem 0.9rem', borderRadius:10, fontSize:'0.78rem', fontWeight:800, cursor:'pointer', border:'none', fontFamily:"'JetBrains Mono', monospace", background:'rgba(255,106,61,0.15)', color:'#FF6A3D', outline:'1px solid rgba(255,106,61,0.4)' }}>
@@ -385,13 +388,13 @@ function PartnersTab({ currentUserId }) {
             Sent Requests ({sent.length})
           </p>
           <div style={{ display:'flex', flexDirection:'column', gap:'0.625rem' }}>
-            {sent.map(s => {
+            {sent.filter(s => s?.receiver).map(s => {
               const u = s.receiver
               return (
                 <motion.div key={s.id} initial={{ opacity:0, y:4 }} animate={{ opacity:1, y:0 }} style={cardStyle}>
                   <Avatar user={u} size={42}/>
                   <div style={{ flex:1, minWidth:0 }}>
-                    <p style={{ margin:0, fontWeight:700, color:'#F2EFE9' }}>{u.name || u.username}</p>
+                    <p style={{ margin:0, fontWeight:700, color:'#F2EFE9' }}>{u.name || u.username || 'User'}</p>
                     <p style={{ margin:'2px 0 0', fontSize:'0.75rem', color:'#9A9CA3' }}>Request pending…</p>
                   </div>
                   <button onClick={() => cancelRequest.mutate(u.id)}
@@ -420,8 +423,8 @@ function PartnersTab({ currentUserId }) {
             <motion.div key={u.id} initial={{ opacity:0, y:4 }} animate={{ opacity:1, y:0 }} style={cardStyle}>
               <Avatar user={u} size={42}/>
               <div style={{ flex:1, minWidth:0 }}>
-                <p style={{ margin:0, fontWeight:700, color:'#F2EFE9' }}>{u.name || u.username}</p>
-                <p style={{ margin:'2px 0 0', fontSize:'0.75rem', color:'#9A9CA3' }}>@{u.username}</p>
+                <p style={{ margin:0, fontWeight:700, color:'#F2EFE9' }}>{u.name || u.username || 'User'}</p>
+                <p style={{ margin:'2px 0 0', fontSize:'0.75rem', color:'#9A9CA3' }}>@{u.username || 'user'}</p>
                 {u.bio && <p style={{ margin:'3px 0 0', fontSize:'0.75rem', color:'#64748b', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{u.bio}</p>}
               </div>
               <button onClick={() => sendRequest.mutate(u.id)}

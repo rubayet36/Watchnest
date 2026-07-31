@@ -7,17 +7,44 @@ import { sendPushToUser } from '@/lib/push'
 export async function GET(request) {
   try {
     const { supabase, user } = await getAuthFromHeader(request)
-    if (!user) return NextResponse.json({ users: [], sent: [], received: [] })
+    if (!user) return NextResponse.json({ users: [], partners: [], sent: [], received: [] })
 
-    const [{ data: users }, { data: sent }, { data: received }] = await Promise.all([
+    const [{ data: users }, { data: followsAsFollower }, { data: followsAsFollowing }] = await Promise.all([
       supabase.from('profiles').select('id, name, avatar_url, username, bio').neq('id', user.id).limit(100),
-      supabase.from('follows').select('*').eq('follower_id', user.id),
-      supabase.from('follows').select('*, profiles:follower_id(id, name, avatar_url, username)').eq('following_id', user.id),
+      supabase.from('follows').select('*, receiver:following_id(id, name, avatar_url, username, bio)').eq('follower_id', user.id),
+      supabase.from('follows').select('*, sender:follower_id(id, name, avatar_url, username, bio)').eq('following_id', user.id),
     ])
 
-    return NextResponse.json({ users: users||[], sent: sent||[], received: received||[] })
+    const partnersMap = new Map()
+    const sent = []
+    const received = []
+
+    for (const f of (followsAsFollower || [])) {
+      if (f.status === 'accepted' && f.receiver) {
+        partnersMap.set(f.receiver.id, f.receiver)
+      } else if (f.status === 'pending' && f.receiver) {
+        sent.push({ id: f.id, status: f.status, receiver: f.receiver })
+      }
+    }
+
+    for (const f of (followsAsFollowing || [])) {
+      if (f.status === 'accepted' && f.sender) {
+        partnersMap.set(f.sender.id, f.sender)
+      } else if (f.status === 'pending' && f.sender) {
+        received.push({ id: f.id, status: f.status, sender: f.sender })
+      }
+    }
+
+    const partners = Array.from(partnersMap.values())
+
+    return NextResponse.json({
+      users: users || [],
+      partners,
+      sent,
+      received,
+    })
   } catch (e) {
-    return NextResponse.json({ error: e.message, users:[], sent:[], received:[] }, { status: 500 })
+    return NextResponse.json({ error: e.message, users: [], partners: [], sent: [], received: [] }, { status: 500 })
   }
 }
 
@@ -26,27 +53,29 @@ export async function POST(request) {
     const { supabase, user } = await getAuthFromHeader(request)
     if (!user) return unauthorized()
 
-    const { following_id } = await request.json()
-    if (!following_id) return NextResponse.json({ error: 'following_id required' }, { status: 400 })
+    const body = await request.json()
+    const targetId = body.following_id || body.target_id
+    if (!targetId) return NextResponse.json({ error: 'following_id or target_id required' }, { status: 400 })
 
-    const { error, data } = await supabase.from('follows').upsert(
-      { follower_id: user.id, following_id, status: 'pending' },
+    const { error } = await supabase.from('follows').upsert(
+      { follower_id: user.id, following_id: targetId, status: 'pending' },
       { onConflict: 'follower_id,following_id', ignoreDuplicates: false }
-    ).select().single()
+    )
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
     // Create notification for follow request
     await supabase.from('notifications').insert({
-      user_id: following_id,
+      user_id: targetId,
       actor_id: user.id,
       type: 'follow_request',
-    })
-    await sendPushToUser(following_id, {
+    }).catch(() => {})
+
+    await sendPushToUser(targetId, {
       body: `${user.user_metadata?.full_name || user.email?.split('@')[0] || 'Someone'} sent you a partner request`,
       tag: `follow-${user.id}`,
       url: '/watchlist',
-    })
+    }).catch(() => {})
 
     return NextResponse.json({ success: true, status: 'pending' })
   } catch (e) {
@@ -59,13 +88,22 @@ export async function PATCH(request) {
     const { supabase, user } = await getAuthFromHeader(request)
     if (!user) return unauthorized()
 
-    const { follow_id, status } = await request.json()
-    if (!follow_id || !status) return NextResponse.json({ error: 'follow_id and status required' }, { status: 400 })
+    const body = await request.json()
+    const followId = body.follow_id || body.followId
+    const action = body.action
+    const status = body.status || (action === 'accept' ? 'accepted' : action === 'decline' ? 'declined' : null)
+
+    if (!followId || !status) return NextResponse.json({ error: 'follow_id and status required' }, { status: 400 })
+
+    if (status === 'declined') {
+      const { error } = await supabase.from('follows').delete().eq('id', followId)
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ success: true, status: 'declined' })
+    }
 
     const { error } = await supabase.from('follows')
       .update({ status })
-      .eq('id', follow_id)
-      .eq('following_id', user.id)
+      .eq('id', followId)
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ success: true, status })
@@ -79,9 +117,12 @@ export async function DELETE(request) {
     const { supabase, user } = await getAuthFromHeader(request)
     if (!user) return unauthorized()
 
-    const { following_id } = await request.json()
+    const body = await request.json()
+    const targetId = body.following_id || body.target_id
+    if (!targetId) return NextResponse.json({ error: 'target_id or following_id required' }, { status: 400 })
+
     const { error } = await supabase.from('follows').delete()
-      .eq('follower_id', user.id).eq('following_id', following_id)
+      .or(`and(follower_id.eq.${user.id},following_id.eq.${targetId}),and(follower_id.eq.${targetId},following_id.eq.${user.id})`)
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ success: true })
