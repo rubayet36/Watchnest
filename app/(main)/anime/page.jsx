@@ -3,28 +3,24 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Search, X, Star, Tv, Flame, Trophy, Play, ChevronDown, Calendar, ArrowRight, ArrowLeft } from 'lucide-react'
+import { Search, X, Star, Play, ChevronDown, ArrowRight, ArrowLeft, Sparkles, Filter } from 'lucide-react'
 import Link from 'next/link'
-import Image from 'next/image'
 
 import { useAuth } from '@/context/AuthContext'
 import { authFetch } from '@/lib/auth-fetch'
-
-// Custom loader/ui
 import { LoadingSpinner, CardSkeleton } from '@/components/ui/LoadingSpinner'
 import PosterImage from '@/components/ui/PosterImage'
 
-
 // ── AniList Genres ──────────────────────────────────────────────
 const ANIME_GENRES = [
-  { id: 'Action', name: '⚔️ Action' },
-  { id: 'Adventure', name: '🗺️ Adventure' },
-  { id: 'Comedy', name: '😂 Comedy' },
-  { id: 'Drama', name: '🎭 Drama' },
-  { id: 'Fantasy', name: '🪄 Fantasy' },
-  { id: 'Mystery', name: '🔍 Mystery' },
-  { id: 'Sci-Fi', name: '🚀 Sci-Fi' },
-  { id: 'Romance', name: '💖 Romance' },
+  { id: 'Action', name: 'Action' },
+  { id: 'Adventure', name: 'Adventure' },
+  { id: 'Comedy', name: 'Comedy' },
+  { id: 'Drama', name: 'Drama' },
+  { id: 'Fantasy', name: 'Fantasy' },
+  { id: 'Mystery', name: 'Mystery' },
+  { id: 'Sci-Fi', name: 'Sci-Fi' },
+  { id: 'Romance', name: 'Romance' },
 ]
 
 // ── Year options ───────────────────────────────────────────────
@@ -32,20 +28,18 @@ const YEAR_OPTIONS = Array.from({ length: 30 }, (_, i) => String(new Date().getF
 
 // ── Sort Options ───────────────────────────────────────────────
 const SORT_OPTIONS = [
-  { id: 'TRENDING_DESC', name: '🔥 Trending' },
-  { id: 'POPULARITY_DESC', name: '❤️ Most Popular' },
-  { id: 'SCORE_DESC', name: '⭐ Top Rated' },
+  { id: 'TRENDING_DESC', name: 'Trending' },
+  { id: 'POPULARITY_DESC', name: 'Most Popular' },
+  { id: 'SCORE_DESC', name: 'Top Rated' },
 ]
 
 export default function AnimePortalPage() {
-  // Navigation & filter states
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [selectedGenre, setSelectedGenre] = useState('')
   const [selectedYear, setSelectedYear] = useState('')
   const [selectedSort, setSelectedSort] = useState('TRENDING_DESC')
   const [currentPage, setCurrentPage] = useState(1)
-
   const [heroIndex, setHeroIndex] = useState(0)
 
   const { user } = useAuth()
@@ -86,13 +80,9 @@ export default function AnimePortalPage() {
     queryKey: ['animeFeed'],
     queryFn: async () => {
       const [trendingRes, actionRes, fantasyRes, popularRes] = await Promise.all([
-        // Trending Weekly
         fetch('/api/anime/trending').then(r => r.json()),
-        // Action Anime
         fetch('/api/anime/search?genre=Action').then(r => r.json()),
-        // Fantasy Anime
         fetch('/api/anime/search?genre=Fantasy').then(r => r.json()),
-        // Popular Movies/Shows
         fetch('/api/anime/popular').then(r => r.json()),
       ])
 
@@ -104,7 +94,7 @@ export default function AnimePortalPage() {
       }
     },
     enabled: !isFilterActive,
-    staleTime: 300_000, // 5 min
+    staleTime: 300_000,
   })
 
   // ── 2. Fetch Discover Grid (when filter/search is active) ──────────
@@ -145,7 +135,6 @@ export default function AnimePortalPage() {
 
   const heroAnime = heroItems[heroIndex]
 
-  // Clear filters
   const resetFilters = () => {
     setSearchQuery('')
     setSelectedGenre('')
@@ -155,22 +144,17 @@ export default function AnimePortalPage() {
   }
 
   return (
-    <div className="page-shell mobile-safe-bottom" style={{ maxWidth: 1000, margin: '0 auto', color: '#fff' }}>
+    <div className="page-shell mobile-safe-bottom" style={{ maxWidth: 1000, margin: '0 auto', color: '#F2EFE9', padding: '1rem 1.25rem' }}>
       
-      {/* Orange-themed Custom Header */}
-      <header style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-        <div>
-          <span style={{ fontSize: '0.65rem', padding: '3px 8px', background: 'rgba(244,117,33,0.15)', color: '#f47521', border: '1px solid rgba(244,117,33,0.3)', borderRadius: '6px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Crunchyroll Portal
-          </span>
-          <h1 className="page-title" style={{ margin: '0.35rem 0 0 0', fontSize: '1.85rem', fontWeight: 900, background: 'linear-gradient(135deg, #fff 30%, #f47521 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
-            Watch Anime
-          </h1>
-        </div>
+      {/* Header Bar */}
+      <header style={{ marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
+        <h1 style={{ margin: 0, fontFamily: "'Bebas Neue', sans-serif", fontSize: 'clamp(1.85rem, 5vw, 2.5rem)', letterSpacing: '0.03em', color: '#F2EFE9', lineHeight: 1 }}>
+          ANIME PORTAL
+        </h1>
 
-        {/* Search Bar */}
+        {/* Top Search Bar */}
         <div style={{ position: 'relative', width: '100%', maxWidth: '280px' }}>
-          <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+          <Search size={15} style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: '#9A9CA3' }} />
           <input
             type="text"
             placeholder="Search anime..."
@@ -179,24 +163,23 @@ export default function AnimePortalPage() {
             style={{
               width: '100%',
               minHeight: '38px',
-              borderRadius: '12px',
+              borderRadius: '10px',
               border: '1px solid rgba(255, 255, 255, 0.08)',
-              background: 'rgba(255, 255, 255, 0.04)',
-              color: '#fff',
+              background: '#15171C',
+              color: '#F2EFE9',
               paddingLeft: '34px',
               paddingRight: searchQuery ? '32px' : '12px',
               fontSize: '0.82rem',
+              fontFamily: "'Manrope', sans-serif",
               fontWeight: 600,
               outline: 'none',
               transition: 'all 0.15s ease',
             }}
             onFocus={(e) => {
-              e.currentTarget.style.borderColor = 'rgba(244, 117, 33, 0.4)'
-              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.06)'
+              e.currentTarget.style.borderColor = '#FF6A3D'
             }}
             onBlur={(e) => {
               e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)'
-              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.04)'
             }}
           />
           {searchQuery && (
@@ -204,7 +187,7 @@ export default function AnimePortalPage() {
               onClick={() => setSearchQuery('')}
               style={{
                 position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)',
-                background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer',
+                background: 'none', border: 'none', color: '#9A9CA3', cursor: 'pointer',
                 display: 'flex', alignItems: 'center', padding: '4px'
               }}
             >
@@ -214,14 +197,13 @@ export default function AnimePortalPage() {
         </div>
       </header>
 
-      {/* Discovery Filters Bar */}
+      {/* Sleek Horizontal Filter Pills */}
       <section style={{
-        display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.5rem',
-        marginBottom: '1.5rem', background: 'rgba(255, 255, 255, 0.02)', border: '1px solid rgba(255, 255, 255, 0.04)',
-        padding: '0.5rem', borderRadius: '16px'
+        display: 'flex', gap: '0.5rem', alignItems: 'center',
+        marginBottom: '1.25rem', overflowX: 'auto', scrollbarWidth: 'none', msOverflowStyle: 'none'
       }}>
         {/* Genre */}
-        <div className="stream-select-wrap">
+        <div className="stream-select-wrap" style={{ flexShrink: 0, minWidth: 120 }}>
           <select value={selectedGenre} onChange={(e) => setSelectedGenre(e.target.value)}>
             <option value="">All Genres</option>
             {ANIME_GENRES.map((g) => (
@@ -232,7 +214,7 @@ export default function AnimePortalPage() {
         </div>
 
         {/* Year */}
-        <div className="stream-select-wrap">
+        <div className="stream-select-wrap" style={{ flexShrink: 0, minWidth: 100 }}>
           <select value={selectedYear} onChange={(e) => setSelectedYear(e.target.value)}>
             <option value="">All Years</option>
             {YEAR_OPTIONS.map((y) => (
@@ -243,7 +225,7 @@ export default function AnimePortalPage() {
         </div>
 
         {/* Sort */}
-        <div className="stream-select-wrap">
+        <div className="stream-select-wrap" style={{ flexShrink: 0, minWidth: 130 }}>
           <select value={selectedSort} onChange={(e) => setSelectedSort(e.target.value)} disabled={Boolean(debouncedSearch)}>
             {SORT_OPTIONS.map((s) => (
               <option key={s.id} value={s.id}>{s.name}</option>
@@ -257,35 +239,32 @@ export default function AnimePortalPage() {
           <button
             onClick={resetFilters}
             style={{
-              minHeight: '38px', borderRadius: '12px', border: '1px solid rgba(244,117,33,0.3)',
-              background: 'rgba(244,117,33,0.1)', color: '#f47521', cursor: 'pointer',
-              fontWeight: 800, fontSize: '0.78rem', transition: 'all 0.15s'
+              minHeight: '34px', padding: '0 12px', borderRadius: '10px', border: '1px solid #FF6A3D',
+              background: 'rgba(255, 106, 61, 0.12)', color: '#FF6A3D', cursor: 'pointer',
+              fontWeight: 700, fontSize: '0.75rem', fontFamily: "'JetBrains Mono', monospace", flexShrink: 0
             }}
-            onMouseEnter={e => { e.currentTarget.style.background = 'rgba(244,117,33,0.18)' }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'rgba(244,117,33,0.1)' }}
           >
-            Clear Filters
+            Clear
           </button>
         )}
       </section>
 
-      {/* Grid or Rows Renderer */}
+      {/* Main Feed or Grid */}
       {feedLoading || gridLoading ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: '12px' }}>
-          {Array.from({ length: 14 }).map((_, i) => <CardSkeleton key={i} />)}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '14px' }}>
+          {Array.from({ length: 12 }).map((_, i) => <CardSkeleton key={i} />)}
         </div>
       ) : isFilterActive ? (
-        // Filter Grid
         <div>
           {gridData?.results?.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '4rem 1rem', background: 'rgba(255,255,255,0.02)', borderRadius: 24, border: '1px solid rgba(255,255,255,0.05)' }}>
+            <div style={{ textAlign: 'center', padding: '4rem 1rem', background: '#15171C', borderRadius: 18, border: '1px solid rgba(255,255,255,0.08)' }}>
               <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>🌸</div>
-              <h3 style={{ color: '#cbd5e1', margin: '0 0 0.5rem', fontWeight: 700 }}>No anime found</h3>
-              <p style={{ color: '#64748b', margin: 0, fontSize: '0.82rem' }}>Try refining your search or filters.</p>
+              <h3 style={{ color: '#F2EFE9', margin: '0 0 0.5rem', fontFamily: "'Bebas Neue', sans-serif", fontSize: '1.75rem' }}>NO ANIME FOUND</h3>
+              <p style={{ color: '#9A9CA3', margin: 0, fontSize: '0.85rem' }}>Try refining your search or filter keywords.</p>
             </div>
           ) : (
             <>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))', gap: '12px', marginBottom: '2rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '14px', marginBottom: '2rem' }}>
                 {gridData?.results?.map((anime) => (
                   <AnimeCard key={anime.id} movie={anime} />
                 ))}
@@ -298,23 +277,25 @@ export default function AnimePortalPage() {
                     disabled={currentPage === 1}
                     onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                     style={{
-                      display: 'flex', alignItems: 'center', gap: '6px', minHeight: '36px', padding: '0 12px',
-                      borderRadius: '10px', background: 'rgba(255,255,255,0.05)', color: currentPage === 1 ? '#475569' : '#fff',
-                      border: '1px solid rgba(255,255,255,0.08)', cursor: currentPage === 1 ? 'not-allowed' : 'pointer'
+                      display: 'flex', alignItems: 'center', gap: '6px', minHeight: '38px', padding: '0 14px',
+                      borderRadius: '10px', background: '#15171C', color: currentPage === 1 ? '#64748b' : '#F2EFE9',
+                      border: '1px solid rgba(255,255,255,0.08)', cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+                      fontFamily: "'JetBrains Mono', monospace", fontSize: '0.78rem', fontWeight: 700
                     }}
                   >
                     <ArrowLeft size={14} /> Prev
                   </button>
-                  <span style={{ fontSize: '0.82rem', fontWeight: 750, color: '#94a3b8' }}>
-                    Page <strong style={{ color: '#f47521' }}>{currentPage}</strong> of {gridData.totalPages}
+                  <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.8rem', fontWeight: 750, color: '#9A9CA3' }}>
+                    PAGE <strong style={{ color: '#FF6A3D' }}>{currentPage}</strong> OF {gridData.totalPages}
                   </span>
                   <button
                     disabled={currentPage === gridData.totalPages}
                     onClick={() => setCurrentPage(p => Math.min(gridData.totalPages, p + 1))}
                     style={{
-                      display: 'flex', alignItems: 'center', gap: '6px', minHeight: '36px', padding: '0 12px',
-                      borderRadius: '10px', background: 'rgba(255,255,255,0.05)', color: currentPage === gridData.totalPages ? '#475569' : '#fff',
-                      border: '1px solid rgba(255,255,255,0.08)', cursor: currentPage === gridData.totalPages ? 'not-allowed' : 'pointer'
+                      display: 'flex', alignItems: 'center', gap: '6px', minHeight: '38px', padding: '0 14px',
+                      borderRadius: '10px', background: '#15171C', color: currentPage === gridData.totalPages ? '#64748b' : '#F2EFE9',
+                      border: '1px solid rgba(255,255,255,0.08)', cursor: currentPage === gridData.totalPages ? 'not-allowed' : 'pointer',
+                      fontFamily: "'JetBrains Mono', monospace", fontSize: '0.78rem', fontWeight: 700
                     }}
                   >
                     Next <ArrowRight size={14} />
@@ -325,15 +306,14 @@ export default function AnimePortalPage() {
           )}
         </div>
       ) : (
-        // Normal Crunchyroll Feed Rows
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
           
-          {/* Rotating Hero Banner */}
+          {/* Featured Hero Banner */}
           {heroAnime && (
             <div style={{
-              position: 'relative', height: 280, borderRadius: 24, overflow: 'hidden',
-              background: '#09090e',
-              boxShadow: 'inset 0 0 80px rgba(0,0,0,0.8), 0 10px 30px rgba(0,0,0,0.4)',
+              position: 'relative', height: 280, borderRadius: 20, overflow: 'hidden',
+              background: '#0D0E12', border: '1px solid rgba(255,255,255,0.08)',
+              boxShadow: '0 20px 50px rgba(0,0,0,0.6)',
             }}>
               <AnimatePresence mode="popLayout">
                 <motion.div
@@ -346,15 +326,15 @@ export default function AnimePortalPage() {
                     position: 'absolute', inset: 0,
                     backgroundImage: `url(${heroAnime.bannerImage || heroAnime.coverImage?.large})`,
                     backgroundSize: 'cover', backgroundPosition: 'center',
-                    filter: 'brightness(0.5)'
+                    filter: 'brightness(0.45)'
                   }}
                 />
               </AnimatePresence>
 
-              {/* Dark Overlay Gradient */}
+              {/* Scrim overlay */}
               <div style={{
                 position: 'absolute', inset: 0,
-                background: 'linear-gradient(to top, #09090e 10%, transparent 60%, rgba(9,9,14,0.6) 100%), linear-gradient(to right, rgba(9,9,14,0.9) 20%, transparent 70%)',
+                background: 'linear-gradient(to top, #0D0E12 0%, transparent 60%), linear-gradient(to right, #0D0E12 25%, transparent 75%)',
                 zIndex: 1
               }} />
 
@@ -369,22 +349,21 @@ export default function AnimePortalPage() {
                   style={{
                     position: 'absolute', bottom: 0, left: 0, right: 0,
                     padding: '24px', zIndex: 2, display: 'flex', flexDirection: 'column', gap: '8px',
-                    maxWidth: 420
+                    maxWidth: 460
                   }}
                 >
                   <span style={{
-                    alignSelf: 'flex-start', fontSize: '0.62rem', padding: '2px 6px',
-                    background: 'rgba(244,117,33,0.25)', color: '#f47521',
-                    border: '1px solid rgba(244,117,33,0.4)', borderRadius: 6, fontWeight: 900
+                    alignSelf: 'flex-start', fontFamily: "'JetBrains Mono', monospace", fontSize: '0.68rem',
+                    letterSpacing: '0.12em', color: '#E8B23D', fontWeight: 800, textTransform: 'uppercase'
                   }}>
-                    TRENDING ANIME
+                    — FEATURED ANIME PICK
                   </span>
-                  <h2 style={{ fontSize: '1.5rem', fontWeight: 900, color: '#fff', margin: 0, lineHeight: 1.2 }}>
+                  <h2 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: 'clamp(1.75rem, 4vw, 2.5rem)', letterSpacing: '0.02em', color: '#F2EFE9', margin: 0, lineHeight: 1.05 }}>
                     {heroAnime.title?.english || heroAnime.title?.romaji}
                   </h2>
                   <p style={{
-                    margin: '4px 0 8px', color: '#94a3b8', fontSize: '0.78rem',
-                    lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 3,
+                    margin: '2px 0 8px', color: '#9A9CA3', fontSize: '0.8rem',
+                    lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2,
                     WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis'
                   }}>
                     {heroAnime.description?.replace(/<[^>]*>/g, '')}
@@ -392,41 +371,59 @@ export default function AnimePortalPage() {
                   <div style={{ display: 'flex', gap: '10px' }}>
                     <Link
                       href={`/anime/${heroAnime.id}`}
+                      className="btn-primary"
                       style={{
-                        textDecoration: 'none', padding: '0.5rem 1.1rem', fontSize: '0.8rem',
-                        display: 'flex', alignItems: 'center', gap: 6, background: '#f47521',
-                        color: '#fff', borderRadius: '12px', fontWeight: 800,
+                        padding: '0.55rem 1.25rem', fontSize: '0.82rem',
+                        display: 'inline-flex', alignItems: 'center', gap: 6, textDecoration: 'none'
                       }}
                     >
-                      <Play size={14} fill="#fff" stroke="none" /> Watch Now
+                      <Play size={14} fill="currentColor" stroke="none" /> WATCH NOW
                     </Link>
                   </div>
                 </motion.div>
               </AnimatePresence>
+
+              {/* Carousel Pagination Dots */}
+              <div style={{ position: 'absolute', bottom: 18, right: 24, zIndex: 5, display: 'flex', gap: 6 }}>
+                {heroItems.map((_, i) => (
+                  <span
+                    key={i}
+                    onClick={() => setHeroIndex(i)}
+                    style={{
+                      width: i === heroIndex ? 20 : 6, height: 6, borderRadius: 99,
+                      background: i === heroIndex ? '#FF6A3D' : 'rgba(255,255,255,0.3)',
+                      cursor: 'pointer', transition: 'all 0.25s ease'
+                    }}
+                  />
+                ))}
+              </div>
             </div>
           )}
 
-          {/* Rows */}
+          {/* Section Rows */}
           {[
-            ...(myAnimeList.length > 0 ? [{ title: '🔖 My Watching List', items: myAnimeList }] : []),
-            { title: '🔥 Weekly Trending Anime', items: feedData?.trending },
-            { title: '⭐ All-Time Popular Hits', items: feedData?.popular },
-            { title: '⚔️ Action & Adventure', items: feedData?.action },
-            { title: '🪄 Sci-Fi & Fantasy', items: feedData?.fantasy },
+            ...(myAnimeList.length > 0 ? [{ title: 'MY WATCHING LIST', items: myAnimeList }] : []),
+            { title: 'WEEKLY TRENDING ANIME', items: feedData?.trending },
+            { title: 'ALL-TIME POPULAR HITS', items: feedData?.popular },
+            { title: 'ACTION & ADVENTURE', items: feedData?.action },
+            { title: 'SCI-FI & FANTASY', items: feedData?.fantasy },
           ].map((row, rowIdx) => {
             if (!row.items?.length) return null
             return (
               <div key={rowIdx} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <h3 style={{ fontSize: '1rem', fontWeight: 900, color: '#fff', margin: 0 }}>{row.title}</h3>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                  <span style={{ width: '4px', height: '1.25rem', background: '#FF6A3D', borderRadius: '99px' }} />
+                  <h3 style={{ margin: 0, fontFamily: "'Bebas Neue', sans-serif", fontSize: '1.4rem', letterSpacing: '0.03em', color: '#F2EFE9' }}>
+                    {row.title}
+                  </h3>
                 </div>
                 
                 {/* Horizontal Scroller */}
                 <div
                   className="netflix-row-scroller"
                   style={{
-                    display: 'flex', gap: '12px', overflowX: 'auto', paddingBottom: '10px',
-                    paddingLeft: '2px', paddingRight: '2px'
+                    display: 'flex', gap: '14px', overflowX: 'auto', paddingBottom: '10px',
+                    paddingLeft: '2px', paddingRight: '2px', scrollbarWidth: 'none'
                   }}
                 >
                   {row.items.map(anime => (
@@ -439,29 +436,7 @@ export default function AnimePortalPage() {
         </div>
       )}
 
-      {/* Crunchyroll Orange hover CSS */}
       <style>{`
-        .anime-poster-card:hover {
-          transform: scale(1.08) translateY(-4px);
-          box-shadow: 0 10px 22px rgba(0,0,0,0.6), 0 4px 12px rgba(244,117,33,0.3);
-        }
-        .netflix-row-scroller::-webkit-scrollbar {
-          height: 6px;
-        }
-        .netflix-row-scroller::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .netflix-row-scroller::-webkit-scrollbar-thumb {
-          background: rgba(255,255,255,0.06);
-          border-radius: 99px;
-        }
-        .netflix-row-scroller::-webkit-scrollbar-thumb:hover {
-          background: rgba(244,117,33,0.3);
-          border-radius: 99px;
-        }
-        .wn-sidebar {
-          border-right: 1px solid rgba(244, 117, 33, 0.15);
-        }
         .stream-select-wrap {
           position: relative;
         }
@@ -470,25 +445,26 @@ export default function AnimePortalPage() {
           appearance: none;
           min-height: 38px;
           border-radius: 12px;
-          border: 1px solid rgba(255,255,255,0.12);
-          background: rgba(255,255,255,0.07);
-          color: #fff;
+          border: 1px solid rgba(255,255,255,0.08);
+          background: #15171C;
+          color: #F2EFE9;
           padding: 0.4rem 2rem 0.4rem 0.75rem;
-          font-size: 0.8125rem;
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 0.78rem;
           font-weight: 700;
           cursor: pointer;
           outline: none;
         }
         .stream-select-wrap option {
-          background: #1c1c2e;
-          color: #fff;
+          background: #15171C;
+          color: #F2EFE9;
         }
         .stream-select-wrap svg {
           position: absolute;
           right: 10px;
           top: 50%;
           transform: translateY(-50%);
-          color: #94a3b8;
+          color: #9A9CA3;
           pointer-events: none;
         }
       `}</style>
@@ -496,7 +472,7 @@ export default function AnimePortalPage() {
   )
 }
 
-// ── Generic Anime Card ─────────────────────────────────────────
+// ── Standard 140x210 Poster Card Component ────────────────────
 function AnimeCard({ movie }) {
   const norm = useMemo(() => {
     if (!movie) return null
@@ -511,64 +487,82 @@ function AnimeCard({ movie }) {
   if (!norm) return null
 
   const targetId = String(norm.id)
-  
-  // Rating mappings (copied from discovery cards)
-  const hasRating = norm.averageScore && norm.averageScore > 0
-  const voteAverage = hasRating ? norm.averageScore / 10 : 0
-  const rtScoreText = hasRating ? `${Math.max(10, Math.min(100, Math.round(voteAverage * 10 + (voteAverage >= 7.5 ? 6 : (voteAverage <= 5.5 ? -8 : -2)))))}%` : '❌'
-  const imdbScoreText = hasRating ? Math.max(1.0, Math.min(10.0, voteAverage - 0.2 + (voteAverage > 8 ? 0.1 : (voteAverage < 6 ? -0.3 : 0)))).toFixed(1) : '❌'
+  const scoreVal = norm.averageScore ? (norm.averageScore / 10).toFixed(1) : null
 
   return (
     <Link
       href={`/anime/${targetId}`}
-      className="anime-poster-card"
       style={{
-        width: 110,
+        width: 140,
+        height: 210,
         flexShrink: 0,
         position: 'relative',
-        borderRadius: 12,
+        borderRadius: 14,
         overflow: 'hidden',
         cursor: 'pointer',
-        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-        aspectRatio: '2/3',
-        background: '#1c1c2e',
-        display: 'block'
+        border: '1px solid rgba(255, 255, 255, 0.08)',
+        background: '#15171C',
+        display: 'block',
+        textDecoration: 'none',
+        transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+      }}
+      onMouseEnter={e => {
+        e.currentTarget.style.transform = 'scale(1.05)'
+        e.currentTarget.style.boxShadow = '0 12px 28px rgba(255, 106, 61, 0.25)'
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.transform = 'scale(1)'
+        e.currentTarget.style.boxShadow = 'none'
       }}
     >
       <PosterImage
         src={norm.coverImage}
         alt={norm.title}
         fill
-        sizes="110px"
+        sizes="140px"
         style={{ objectFit: 'cover' }}
       />
-      
-      {/* Top Glassmorphic Ratings Bar */}
+
+      {/* Rating chip top-left */}
+      {scoreVal && (
+        <div style={{
+          position: 'absolute', top: 8, left: 8, zIndex: 3,
+          padding: '2px 6px', borderRadius: 6,
+          background: 'rgba(10, 11, 14, 0.85)', backdropFilter: 'blur(8px)',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          display: 'flex', alignItems: 'center', gap: 3,
+          fontFamily: "'JetBrains Mono', monospace", fontSize: '0.68rem', fontWeight: 800, color: '#F2EFE9'
+        }}>
+          <Star size={10} fill="#E8B23D" color="#E8B23D" />
+          {scoreVal}
+        </div>
+      )}
+
+      {/* Type badge top-right */}
       <div style={{
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        background: 'linear-gradient(to bottom, rgba(9, 9, 14, 0.95) 0%, rgba(9, 9, 14, 0.7) 100%)',
-        backdropFilter: 'blur(4px)',
-        borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-        height: '24px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-around',
-        padding: '0 6px',
-        zIndex: 3
+        position: 'absolute', top: 8, right: 8, zIndex: 3,
+        padding: '2px 5px', borderRadius: 4,
+        background: 'rgba(255, 106, 61, 0.2)', backdropFilter: 'blur(8px)',
+        border: '1px solid rgba(255, 106, 61, 0.4)',
+        color: '#FF6A3D', fontFamily: "'JetBrains Mono', monospace",
+        fontSize: '0.6rem', fontWeight: 800
       }}>
-        {/* RT */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '2px', fontSize: '0.625rem', fontWeight: '800', color: '#ef4444' }} title="Rotten Tomatoes Score">
-          <span style={{ fontSize: '0.7rem' }}>🍅</span>
-          {rtScoreText}
-        </div>
-        {/* IMDb */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '2px', fontSize: '0.625rem', fontWeight: '800', color: '#38bdf8' }} title="IMDb Score">
-          <span style={{ fontSize: '0.45rem', padding: '1px 2px', background: '#fbbf24', color: '#000', borderRadius: '2px', fontWeight: '900', lineHeight: 1 }}>IMDb</span>
-          {imdbScoreText}
-        </div>
+        ANIME
+      </div>
+
+      {/* Bottom Title Scrim Overlay */}
+      <div style={{
+        position: 'absolute', inset: 0, zIndex: 2,
+        background: 'linear-gradient(to top, rgba(10, 11, 14, 0.95) 0%, transparent 60%)',
+        display: 'flex', alignItems: 'flex-end', padding: '10px'
+      }}>
+        <span style={{
+          fontSize: '0.82rem', fontWeight: 800, color: '#F2EFE9', lineHeight: 1.25,
+          fontFamily: "'Manrope', sans-serif",
+          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden'
+        }}>
+          {norm.title}
+        </span>
       </div>
     </Link>
   )

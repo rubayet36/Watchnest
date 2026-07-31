@@ -239,144 +239,208 @@ function NetflixDiscovery({ watchlist, onMoreClick }) {
   )
 
   const rows = [
-    { title: '🔥 Trending This Week', items: netflixData.trending },
-    { title: '📺 Popular TV Shows', items: netflixData.tvPopular },
-    { title: '🌸 Anime & Animation Hits', items: netflixData.anime },
-    { title: '💥 Action & Adventure', items: netflixData.action },
-    { title: '🛸 Sci-Fi & Fantasy', items: netflixData.scifi },
+    { title: 'Trending This Week',    accent: '#FF6A3D', items: netflixData.trending  },
+    { title: 'Popular TV Shows',      accent: '#3FDDA8', items: netflixData.tvPopular },
+    { title: 'Anime & Animation Hits',accent: '#F2568C', items: netflixData.anime     },
+    { title: 'Action & Adventure',    accent: '#E8B23D', items: netflixData.action    },
+    { title: 'Sci-Fi & Fantasy',      accent: '#5A96FF', items: netflixData.scifi     },
   ]
 
-  function NetflixCard({ movie }) {
-    const targetId = String(movie.id || movie.tmdb_id)
+  function NetflixCard({ movie, priority = false }) {
+    const targetId   = String(movie.id || movie.tmdb_id)
     const targetType = movie.media_type || 'movie'
+    const rating     = movie.vote_average
+    const isAnime    = movie.genre_ids?.includes(16) && targetType === 'tv'
+    const typeLabel  = isAnime ? 'ANIME' : (targetType === 'tv' ? 'TV' : 'FILM')
 
     return (
       <Link
         href={`/media/${targetType}/${targetId}`}
-        className="netflix-card"
+        className="ux-card"
         style={{
-          width: 110, flexShrink: 0, position: 'relative', borderRadius: 12,
-          overflow: 'hidden', cursor: 'pointer', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-          aspectRatio: '2/3', background: '#1c1c2e', display: 'block'
+          position: 'relative', flexShrink: 0,
+          width: 140, height: 210,
+          borderRadius: 12,
+          overflow: 'hidden', cursor: 'pointer',
+          border: '1px solid rgba(255,255,255,0.08)',
+          background: '#15171C', display: 'block',
+          transition: 'transform .2s ease',
         }}
       >
-        <PosterImage src={getPosterUrl(movie.poster_path)} alt={movie.title || movie.name} fill sizes="110px" style={{ objectFit: 'cover' }} />
+        <PosterImage
+          src={getPosterUrl(movie.poster_path)}
+          alt={movie.title || movie.name}
+          fill sizes="140px"
+          style={{ objectFit: 'cover' }}
+          priority={priority}
+        />
+        {/* Bottom scrim */}
+        <div style={{
+          position:'absolute', inset: 0,
+          background: 'linear-gradient(0deg, rgba(0,0,0,0.88) 8%, transparent 52%)'
+        }} />
+        {/* Title */}
+        <div style={{
+          position:'absolute', left:10, right:10, bottom:9,
+          fontSize:12, fontWeight:700, lineHeight:1.25, color:'#F2EFE9'
+        }}>{movie.title || movie.name}</div>
+        {/* Rating chip (gold, top-left) */}
+        {rating > 0 && (
+          <div style={{
+            position:'absolute', top:8, left:8,
+            fontFamily:"'JetBrains Mono',monospace",
+            fontSize:10, fontWeight:700, color:'#0A0B0E',
+            background:'#E8B23D', padding:'2px 6px', borderRadius:5
+          }}>★ {rating.toFixed(1)}</div>
+        )}
+        {/* Type tag (top-right) */}
+        <div style={{
+          position:'absolute', top:8, right:8,
+          fontFamily:"'JetBrains Mono',monospace",
+          fontSize:9, color:'#F2EFE9',
+          background:'rgba(0,0,0,0.55)',
+          border:'1px solid rgba(255,255,255,0.15)',
+          padding:'2px 6px', borderRadius:5
+        }}>{typeLabel}</div>
       </Link>
     )
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', marginTop: '0.5rem' }}>
+    <div style={{ display:'flex', flexDirection:'column', gap:'2rem', marginTop:'0.5rem' }}>
       <style>{`
-        .netflix-card:hover {
-          transform: scale(1.08) translateY(-4px);
-          box-shadow: 0 10px 22px rgba(0,0,0,0.6), 0 4px 12px rgba(124,58,237,0.3);
+        .ux-card:hover { transform: translateY(-4px); }
+        .ux-row-scroll::-webkit-scrollbar { display: none; }
+        .ux-row-scroll { scrollbar-width: none; }
+        .ux-banner-title {
+          font-family: 'Bebas Neue', sans-serif;
+          font-size: clamp(2rem, 8vw, 3.2rem);
+          letter-spacing: 0.5px; line-height: 0.95;
+          margin-bottom: 10px; color: #F2EFE9;
         }
-        .netflix-row-scroller::-webkit-scrollbar {
-          height: 6px;
+        .ux-kicker {
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 11px; letter-spacing: 2px;
+          text-transform: uppercase; color: #E8B23D;
+          display: flex; align-items: center; gap: 8px;
+          margin-bottom: 10px;
         }
-        .netflix-row-scroller::-webkit-scrollbar-track {
-          background: transparent;
+        .ux-kicker::before {
+          content: ''; width: 16px; height: 1px; background: #E8B23D;
         }
-        .netflix-row-scroller::-webkit-scrollbar-thumb {
-          background: rgba(255,255,255,0.06);
-          border-radius: 99px;
+        .ux-banner-meta {
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 12px; color: #9A9CA3;
+          display: flex; align-items: center; gap: 10px;
+          margin-bottom: 12px;
         }
-        .netflix-row-scroller::-webkit-scrollbar-thumb:hover {
-          background: rgba(255,255,255,0.15);
-          border-radius: 99px;
+        .ux-meta-dot {
+          width: 3px; height: 3px; border-radius: 50%; background: #5B5D64;
         }
+        .ux-eyebrow {
+          display: flex; align-items: center; gap: 8px;
+        }
+        .ux-eyebrow-bar {
+          width: 3.5px; height: 16px; border-radius: 2px; flex-shrink: 0;
+        }
+        .ux-eyebrow strong {
+          font-size: 16px; font-weight: 800; color: #F2EFE9; letter-spacing: -0.01em;
+        }
+        .ux-more-link {
+          font-family: 'JetBrains Mono', monospace;
+          font-size: 11px; font-weight: 700; color: #9A9CA3;
+          letter-spacing: 0.05em; text-transform: uppercase;
+          display: flex; align-items: center; gap: 4px;
+          cursor: pointer; border: none; background: none;
+          transition: color .15s;
+        }
+        .ux-more-link:hover { color: #F2EFE9; }
       `}</style>
 
-      {/* Hero Banner */}
+      {/* ── Hero Banner ── */}
       {heroMovie && (
         <div style={{
-          position: 'relative', height: 280, borderRadius: 24, overflow: 'hidden',
-          background: '#09090e',
-          boxShadow: 'inset 0 0 80px rgba(0,0,0,0.8), 0 10px 30px rgba(0,0,0,0.4)',
+          position:'relative', height: 280, borderRadius: 20,
+          overflow:'hidden', background:'#0D0E12',
         }}>
           <AnimatePresence mode="popLayout">
             <motion.div
               key={heroMovie.id}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.8 }}
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              transition={{ duration: 0.9 }}
               style={{
-                position: 'absolute', inset: 0,
+                position:'absolute', inset:0,
                 backgroundImage: `url(${getBackdropUrl(heroMovie.backdrop_path, 'w1280')})`,
-                backgroundSize: 'cover', backgroundPosition: 'center',
+                backgroundSize:'cover', backgroundPosition:'center',
               }}
             />
           </AnimatePresence>
 
-          {/* Dark Overlay Gradient */}
+          {/* UX.html-style horizontal scrim */}
           <div style={{
-            position: 'absolute', inset: 0,
-            background: 'linear-gradient(to top, #09090e 10%, transparent 60%, rgba(9,9,14,0.6) 100%), linear-gradient(to right, rgba(9,9,14,0.9) 20%, transparent 70%)',
-            zIndex: 1
+            position:'absolute', inset:0,
+            background: 'linear-gradient(90deg, rgba(10,11,14,0.96) 20%, rgba(10,11,14,0.5) 55%, rgba(10,11,14,0.15) 100%)',
+            zIndex:1
           }} />
 
           {/* Hero Content */}
           <AnimatePresence mode="wait">
             <motion.div
               key={heroMovie.id}
-              initial={{ opacity: 0, y: 15 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -15 }}
-              transition={{ duration: 0.4 }}
+              initial={{ opacity:0, y:12 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0 }}
+              transition={{ duration: 0.35 }}
               style={{
-                position: 'absolute', bottom: 20, left: 24, right: 24, zIndex: 2,
-                maxWidth: 420, display: 'flex', flexDirection: 'column', gap: '8px'
+                position:'absolute', left:0, top:0, bottom:0,
+                width:'56%', padding:'34px 0 28px 32px',
+                display:'flex', flexDirection:'column', justifyContent:'center',
+                zIndex:2
               }}
             >
-              <span style={{
-                alignSelf: 'flex-start', fontSize: '0.65rem', padding: '2px 6px',
-                background: 'rgba(124,58,237,0.22)', color: '#c4b5fd',
-                border: '1px solid rgba(124,58,237,0.4)', borderRadius: 6, fontWeight: 900
-              }}>
-                FEATURED TITLE
-              </span>
-              <h2 style={{ fontSize: '1.5rem', fontWeight: 900, color: '#fff', margin: 0, lineHeight: 1.2 }}>
-                {heroMovie.title || heroMovie.name}
-              </h2>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.78rem', color: '#cbd5e1' }}>
-                <span style={{ color: '#f59e0b', fontWeight: 800, display: 'flex', alignItems: 'center', gap: 3 }}>
-                  ★ {heroMovie.vote_average?.toFixed(1)}
-                </span>
+              <div className="ux-kicker">Featured title</div>
+              <div className="ux-banner-title">{(heroMovie.title || heroMovie.name || '').toUpperCase()}</div>
+              <div className="ux-banner-meta">
+                <span style={{ color:'#E8B23D' }}>★ {heroMovie.vote_average?.toFixed(1)}</span>
+                <span className="ux-meta-dot" />
                 <span>{heroMovie.release_date?.split('-')[0] || heroMovie.first_air_date?.split('-')[0]}</span>
-                <span style={{ textTransform: 'uppercase', fontSize: '0.65rem', padding: '1px 4px', background: 'rgba(255,255,255,0.1)', borderRadius: 3 }}>
-                  {heroMovie.media_type === 'tv' ? 'TV SERIES' : 'MOVIE'}
-                </span>
+                <span className="ux-meta-dot" />
+                <span>{heroMovie.media_type === 'tv' ? 'TV' : 'MOVIE'}</span>
               </div>
               <p style={{
-                margin: '4px 0 8px', color: '#94a3b8', fontSize: '0.78rem',
-                lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 3,
-                WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis'
-              }}>
-                {heroMovie.overview}
-              </p>
-              <div style={{ display: 'flex', gap: '10px' }}>
+                margin:'0 0 18px', color:'#9A9CA3', fontSize:13.5,
+                lineHeight:1.7, maxWidth:380,
+                display:'-webkit-box', WebkitLineClamp:3,
+                WebkitBoxOrient:'vertical', overflow:'hidden'
+              }}>{heroMovie.overview}</p>
+              <div style={{ display:'flex', gap:10 }}>
                 <Link
                   href={`/media/${heroMovie.media_type || 'movie'}/${heroMovie.id}`}
-                  className="btn-primary"
-                  style={{ textDecoration: 'none', padding: '0.5rem 1.1rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 6 }}
+                  style={{
+                    display:'flex', alignItems:'center', gap:7,
+                    padding:'11px 20px', borderRadius:12, border:'none',
+                    background:'linear-gradient(135deg,#FF7D4D,#FF6A3D)',
+                    color:'#1a0a04', fontWeight:800, fontSize:13.5,
+                    textDecoration:'none', cursor:'pointer',
+                    boxShadow:'0 10px 26px -10px rgba(255,106,61,.6)',
+                    flexShrink:0,
+                  }}
                 >
-                  <Play size={14} fill="#fff" /> View Details
+                  <Play size={14} fill="#1a0a04" /> View Details
                 </Link>
                 <button
                   onClick={() => toggleDirect(heroMovie)}
                   disabled={isDirectToggling}
                   style={{
-                    padding: '0 0.85rem', borderRadius: 12, cursor: 'pointer',
-                    border: isHeroSaved ? 'none' : '1px solid rgba(255,255,255,0.12)',
-                    background: isHeroSaved ? 'linear-gradient(135deg,#10b981,#06b6d4)' : 'rgba(255,255,255,0.06)',
-                    color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                    fontSize: '0.8rem', fontWeight: 800, transition: 'all 0.15s'
+                    display:'flex', alignItems:'center', gap:7,
+                    padding:'11px 18px', borderRadius:12,
+                    background:'rgba(255,255,255,0.06)',
+                    border:'1px solid rgba(255,255,255,0.08)',
+                    color:'#F2EFE9', fontWeight:700, fontSize:13.5,
+                    cursor:'pointer', flexShrink:0,
+                    transition:'background .15s',
                   }}
                 >
                   {isHeroSaved ? <BookmarkCheck size={14} /> : <Bookmark size={14} />}
-                  <span>{isHeroSaved ? 'Watchlisted' : 'Add to List'}</span>
+                  {isHeroSaved ? 'Watchlisted' : 'Add to List'}
                 </button>
               </div>
             </motion.div>
@@ -384,43 +448,57 @@ function NetflixDiscovery({ watchlist, onMoreClick }) {
         </div>
       )}
 
-      {/* Rows */}
-      {rows.map(row => (
-        <div key={row.title} style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
-            <h3 style={{ margin: 0, fontSize: '0.9375rem', fontWeight: 800, color: '#e2e8f0', display: 'flex', alignItems: 'center', gap: 6 }}>
-              {row.title}
-            </h3>
+      {/* Hero Banner Pagination Dots */}
+      {heroMovie && netflixData?.trending?.length > 1 && (
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 6, marginTop: -12, marginBottom: 8 }}>
+          {netflixData.trending.slice(0, 3).map((_, i) => (
             <button
-              onClick={() => onMoreClick?.(row.title)}
+              key={i}
+              onClick={() => setHeroIndex(i)}
+              aria-label={`Go to slide ${i + 1}`}
               style={{
-                padding: '0.3rem 0.75rem',
-                background: 'rgba(255, 255, 255, 0.05)',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                borderRadius: '8px',
-                color: '#94a3b8',
-                fontSize: '0.7rem',
-                fontWeight: 800,
+                width: heroIndex === i ? 22 : 7,
+                height: 5,
+                borderRadius: 3,
+                background: heroIndex === i ? '#FF6A3D' : 'rgba(255,255,255,0.18)',
+                border: 'none',
+                padding: 0,
                 cursor: 'pointer',
-                transition: 'all 0.2s',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
               }}
-              onMouseEnter={e => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.background = 'rgba(255,255,255,0.1)' }}
-              onMouseLeave={e => { e.currentTarget.style.color = '#94a3b8'; e.currentTarget.style.background = 'rgba(255,255,255,0.05)' }}
-            >
-              More
+            />
+          ))}
+        </div>
+      )}
+
+      {/* ── Rows ── */}
+      {rows.map((row, rowIndex) => (
+        <div key={row.title}>
+          {/* Eyebrow */}
+          <div style={{
+            display:'flex', alignItems:'center',
+            justifyContent:'space-between', marginBottom:14,
+          }}>
+            <div className="ux-eyebrow">
+              <span className="ux-eyebrow-bar" style={{ background: row.accent || '#FF6A3D' }} />
+              <strong>{row.title}</strong>
+            </div>
+            <button className="ux-more-link" onClick={() => onMoreClick?.(row.title)}>
+              ALL <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3}><path d="M9 6l6 6-6 6"/></svg>
             </button>
           </div>
-          
-          {/* Horizontal Scroller */}
+
+          {/* Scroller */}
           <div
-            className="netflix-row-scroller"
-            style={{
-              display: 'flex', gap: '12px', overflowX: 'auto', paddingBottom: '10px',
-              paddingLeft: '2px', paddingRight: '2px'
-            }}
+            className="ux-row-scroll"
+            style={{ display:'flex', gap:12, overflowX:'auto', paddingBottom:8 }}
           >
             {row.items?.map((movie, index) => (
-              <NetflixCard key={`${movie.id}-${index}`} movie={movie} />
+              <NetflixCard
+                key={`${movie.id}-${index}`}
+                movie={movie}
+                priority={rowIndex === 0 && index < 5}
+              />
             ))}
           </div>
         </div>
@@ -879,6 +957,9 @@ function SearchContent() {
   const [isFilterActive, setIsFilterActive] = useState(
     Boolean(initialGenre || initialYear || initialLang || initialCategory || searchParams.has('type'))
   )
+  const [showFilters, setShowFilters] = useState(
+    Boolean(initialGenre || initialYear || initialLang || initialCategory || searchParams.has('type'))
+  )
 
   const { data: watchlist } = useQuery({
     queryKey: ['watchlist', user?.id],
@@ -1016,6 +1097,7 @@ function SearchContent() {
     setPage(1)
     
     setIsFilterActive(false)
+    setShowFilters(false)
     syncFilters({
       type: 'all',
       genre: '',
@@ -1051,20 +1133,21 @@ function SearchContent() {
 
   const selectStyle = {
     appearance: 'none',
-    background: 'rgba(255, 255, 255, 0.05)',
+    background: '#15171C',
     border: '1px solid rgba(255, 255, 255, 0.08)',
-    borderRadius: '12px',
-    color: '#e2e8f0',
-    padding: '0.6rem 2.2rem 0.6rem 1rem',
-    fontSize: '0.85rem',
-    fontWeight: '700',
+    borderRadius: '10px',
+    color: '#F2EFE9',
+    fontFamily: "'JetBrains Mono', monospace",
+    padding: '0.55rem 2.2rem 0.55rem 1rem',
+    fontSize: '0.78rem',
+    fontWeight: '600',
     cursor: 'pointer',
     outline: 'none',
     transition: 'all 0.2s',
-    backgroundImage: `url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2.5' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E")`,
+    backgroundImage: `url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239A9CA3'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2.5' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E")`,
     backgroundRepeat: 'no-repeat',
     backgroundPosition: 'right 10px center',
-    backgroundSize: '14px',
+    backgroundSize: '12px',
   }
 
   return (
@@ -1083,8 +1166,8 @@ function SearchContent() {
       <div style={{ height: '0.75rem' }} />
 
       {/* Search Input at Top */}
-      <div style={{ position: 'relative', marginBottom: '1rem' }}>
-        <Search size={18} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: '#475569', pointerEvents: 'none' }} />
+      <div style={{ position: 'relative', marginBottom: '0.85rem' }}>
+        <Search size={18} style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', color: '#5B5D64', pointerEvents: 'none' }} />
         <input
           type="text"
           value={input}
@@ -1093,19 +1176,20 @@ function SearchContent() {
           className="input"
           style={{ 
             boxSizing: 'border-box', 
-            paddingLeft: 44, 
+            paddingLeft: 46, 
             paddingRight: input ? 44 : 16, 
-            fontSize: '1rem', 
-            height: '46px', 
-            borderRadius: '12px',
-            background: 'rgba(255, 255, 255, 0.04)',
-            border: '1px solid rgba(255, 255, 255, 0.08)'
+            fontSize: '0.9rem', 
+            height: '48px', 
+            borderRadius: '14px',
+            background: '#15171C',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            color: '#F2EFE9',
           }}
         />
         {input && !tmdbSearchLoading && (
           <button onClick={() => { setInput(''); clear(); syncFilters({ input: '' }) }} style={{
             position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)',
-            background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', padding: 4,
+            background: 'none', border: 'none', cursor: 'pointer', color: '#9A9CA3', padding: 4,
           }}><X size={18} /></button>
         )}
         {tmdbSearchLoading && (
@@ -1115,60 +1199,111 @@ function SearchContent() {
         )}
       </div>
 
-      {/* Filter Row - Hidden when typing search */}
+      {/* Mode Tabs: HOME / SEARCH & FILTER */}
       {!isTyping && (
+        <div style={{ display: 'flex', gap: '10px', marginBottom: '1.25rem' }}>
+          <button
+            onClick={() => {
+              setShowFilters(false)
+              handleReset()
+            }}
+            style={{
+              padding: '8px 18px',
+              borderRadius: '10px',
+              fontSize: '0.78rem',
+              fontWeight: '800',
+              fontFamily: "'Manrope', sans-serif",
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+              border: 'none',
+              background: !showFilters && !isGridActive ? '#FF6A3D' : 'transparent',
+              color: !showFilters && !isGridActive ? '#1a0a04' : '#9A9CA3',
+              boxShadow: !showFilters && !isGridActive ? '0 6px 18px -4px rgba(255,106,61,0.5)' : 'none',
+              outline: !showFilters && !isGridActive ? 'none' : '1px solid rgba(255, 255, 255, 0.12)',
+            }}
+          >
+            HOME
+          </button>
+          <button
+            onClick={() => {
+              setShowFilters(prev => !prev)
+            }}
+            style={{
+              padding: '8px 18px',
+              borderRadius: '10px',
+              fontSize: '0.78rem',
+              fontWeight: '800',
+              fontFamily: "'JetBrains Mono', monospace",
+              letterSpacing: '0.04em',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+              border: 'none',
+              background: showFilters || isGridActive ? '#FF6A3D' : 'transparent',
+              color: showFilters || isGridActive ? '#1a0a04' : '#9A9CA3',
+              boxShadow: showFilters || isGridActive ? '0 6px 18px -4px rgba(255,106,61,0.5)' : 'none',
+              outline: showFilters || isGridActive ? 'none' : '1px solid rgba(255, 255, 255, 0.12)',
+            }}
+          >
+            SEARCH &amp; FILTER
+          </button>
+        </div>
+      )}
+
+      {/* Filter Row - Shown when SEARCH & FILTER is toggled on */}
+      {!isTyping && showFilters && (
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '1.25rem', alignItems: 'center' }}>
           <select style={selectStyle} value={type} onChange={e => handleFilterChange('type', e.target.value)}>
-            <option value="all" style={{ background: '#09090e' }}>All Types</option>
-            <option value="movie" style={{ background: '#09090e' }}>Movies</option>
-            <option value="tv" style={{ background: '#09090e' }}>TV Shows</option>
-            <option value="anime" style={{ background: '#09090e' }}>Anime</option>
+            <option value="all" style={{ background: '#15171C' }}>All Types</option>
+            <option value="movie" style={{ background: '#15171C' }}>Movies</option>
+            <option value="tv" style={{ background: '#15171C' }}>TV Shows</option>
+            <option value="anime" style={{ background: '#15171C' }}>Anime</option>
           </select>
 
           <select style={selectStyle} value={genre} onChange={e => handleFilterChange('genre', e.target.value)}>
-            <option value="" style={{ background: '#09090e' }}>All Genres</option>
+            <option value="" style={{ background: '#15171C' }}>All Genres</option>
             {TMDB_GENRES.map(g => (
-              <option key={g.id} value={g.id} style={{ background: '#09090e' }}>{g.name}</option>
+              <option key={g.id} value={g.id} style={{ background: '#15171C' }}>{g.name}</option>
             ))}
           </select>
 
           <select style={selectStyle} value={year} onChange={e => handleFilterChange('year', e.target.value)}>
-            <option value="" style={{ background: '#09090e' }}>All Years</option>
+            <option value="" style={{ background: '#15171C' }}>All Years</option>
             {years.map(y => (
-              <option key={y} value={y} style={{ background: '#09090e' }}>{y}</option>
+              <option key={y} value={y} style={{ background: '#15171C' }}>{y}</option>
             ))}
           </select>
 
           <select style={selectStyle} value={lang} onChange={e => handleFilterChange('lang', e.target.value)}>
-            <option value="" style={{ background: '#09090e' }}>All Regions</option>
-            <option value="en" style={{ background: '#09090e' }}>Hollywood (EN)</option>
-            <option value="hi" style={{ background: '#09090e' }}>Bollywood (HI)</option>
-            <option value="bn" style={{ background: '#09090e' }}>Bangla (BN)</option>
-            <option value="ko" style={{ background: '#09090e' }}>Korean (KO)</option>
-            <option value="ja" style={{ background: '#09090e' }}>Japanese (JA)</option>
-            <option value="es" style={{ background: '#09090e' }}>Spanish (ES)</option>
-            <option value="fr" style={{ background: '#09090e' }}>French (FR)</option>
-            <option value="de" style={{ background: '#09090e' }}>German (DE)</option>
-            <option value="it" style={{ background: '#09090e' }}>Italian (IT)</option>
-            <option value="zh" style={{ background: '#09090e' }}>Chinese (ZH)</option>
-            <option value="ru" style={{ background: '#09090e' }}>Russian (RU)</option>
-            <option value="tr" style={{ background: '#09090e' }}>Turkish (TR)</option>
-            <option value="ar" style={{ background: '#09090e' }}>Arabic (AR)</option>
-            <option value="pt" style={{ background: '#09090e' }}>Portuguese (PT)</option>
-            <option value="ta" style={{ background: '#09090e' }}>Tamil (TA)</option>
-            <option value="te" style={{ background: '#09090e' }}>Telugu (TE)</option>
+            <option value="" style={{ background: '#15171C' }}>All Regions</option>
+            <option value="en" style={{ background: '#15171C' }}>Hollywood (EN)</option>
+            <option value="hi" style={{ background: '#15171C' }}>Bollywood (HI)</option>
+            <option value="bn" style={{ background: '#15171C' }}>Bangla (BN)</option>
+            <option value="ko" style={{ background: '#15171C' }}>Korean (KO)</option>
+            <option value="ja" style={{ background: '#15171C' }}>Japanese (JA)</option>
+            <option value="es" style={{ background: '#15171C' }}>Spanish (ES)</option>
+            <option value="fr" style={{ background: '#15171C' }}>French (FR)</option>
+            <option value="de" style={{ background: '#15171C' }}>German (DE)</option>
+            <option value="it" style={{ background: '#15171C' }}>Italian (IT)</option>
+            <option value="zh" style={{ background: '#15171C' }}>Chinese (ZH)</option>
+            <option value="ru" style={{ background: '#15171C' }}>Russian (RU)</option>
+            <option value="tr" style={{ background: '#15171C' }}>Turkish (TR)</option>
+            <option value="ar" style={{ background: '#15171C' }}>Arabic (AR)</option>
+            <option value="pt" style={{ background: '#15171C' }}>Portuguese (PT)</option>
+            <option value="ta" style={{ background: '#15171C' }}>Tamil (TA)</option>
+            <option value="te" style={{ background: '#15171C' }}>Telugu (TE)</option>
           </select>
 
           {isGridActive && (
             <button
               onClick={handleReset}
               style={{
-                background: 'rgba(239, 68, 68, 0.1)',
-                border: '1px solid rgba(239, 68, 68, 0.2)',
-                color: '#f87171',
-                padding: '0.55rem 1rem',
-                borderRadius: '12px',
-                fontSize: '0.85rem',
+                background: 'rgba(255, 106, 61, 0.1)',
+                border: '1px solid rgba(255, 106, 61, 0.25)',
+                color: '#FF6A3D',
+                padding: '0.5rem 0.85rem',
+                borderRadius: '10px',
+                fontFamily: "'JetBrains Mono', monospace",
+                fontSize: '0.78rem',
                 fontWeight: '700',
                 cursor: 'pointer',
                 transition: 'all 0.2s',
@@ -1176,8 +1311,6 @@ function SearchContent() {
                 alignItems: 'center',
                 gap: '4px'
               }}
-              onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)' }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)' }}
             >
               Reset Filters
             </button>

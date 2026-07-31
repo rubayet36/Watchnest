@@ -1,7 +1,7 @@
 'use client'
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle, ShieldCheck, UserCheck, UserX } from 'lucide-react'
+import { CheckCircle2, ShieldCheck, UserCheck, UserX, Clock, ShieldAlert } from 'lucide-react'
 import Avatar from '@/components/ui/Avatar'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 
@@ -67,54 +67,127 @@ export default function AdminApprovalPanel() {
   const visibleUsers = [...pending, ...approved]
 
   return (
-    <section className="admin-approval-panel glass-panel">
-      <div className="admin-approval-head">
+    <section style={{
+      background: '#15171C',
+      border: '1px solid rgba(232, 178, 61, 0.3)',
+      borderRadius: '20px',
+      padding: '1.25rem 1.5rem',
+      marginBottom: '1.5rem',
+      boxShadow: '0 12px 32px rgba(0,0,0,0.4)',
+    }}>
+      {/* Admin Panel Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
         <div>
-          <p className="page-kicker">Admin</p>
-          <h2>Approve users</h2>
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.68rem', fontWeight: 800, color: '#E8B23D', letterSpacing: '0.12em', textTransform: 'uppercase', marginBottom: 2 }}>
+            — ADMIN CONTROL PANEL
+          </div>
+          <h2 style={{ margin: 0, fontFamily: "'Bebas Neue', sans-serif", fontSize: '1.65rem', color: '#F2EFE9', letterSpacing: '0.03em', lineHeight: 1 }}>
+            USER APPROVAL QUEUE
+          </h2>
         </div>
-        <span><ShieldCheck size={14} /> {pending.length} pending</span>
+        
+        <div style={{
+          padding: '4px 10px', borderRadius: '8px',
+          background: 'rgba(232, 178, 61, 0.14)', border: '1px solid rgba(232, 178, 61, 0.35)',
+          color: '#E8B23D', fontFamily: "'JetBrains Mono', monospace", fontSize: '0.75rem', fontWeight: 800,
+          display: 'flex', alignItems: 'center', gap: 5
+        }}>
+          <ShieldCheck size={14} />
+          {pending.length} PENDING
+        </div>
       </div>
 
       {isLoading ? (
-        <div className="admin-approval-state"><LoadingSpinner size="md" /><span>Loading approval queue...</span></div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, padding: '2rem 0', color: '#9A9CA3', fontFamily: "'JetBrains Mono', monospace", fontSize: '0.8rem' }}>
+          <LoadingSpinner size="md" />
+          <span>Loading approval queue...</span>
+        </div>
       ) : isError ? (
-        <div className="admin-approval-state">
+        <div style={{ textAlign: 'center', padding: '1.5rem 0', color: '#FF6A3D', fontFamily: "'Manrope', sans-serif", fontSize: '0.85rem' }}>
           {error?.message || 'Could not load approval queue.'}
-          <button type="button" className="admin-approval-action" onClick={() => refetch()}>
-            Try again
+          <button
+            type="button"
+            onClick={() => refetch()}
+            style={{
+              display: 'block', margin: '0.75rem auto 0', padding: '0.4rem 1rem', borderRadius: 8,
+              background: 'rgba(255, 106, 61, 0.15)', border: '1px solid #FF6A3D', color: '#FF6A3D',
+              fontWeight: 800, fontFamily: "'JetBrains Mono', monospace", fontSize: '0.75rem', cursor: 'pointer'
+            }}
+          >
+            Try Again
           </button>
         </div>
       ) : (
-        <div className="admin-approval-list">
-          {visibleUsers.map(user => {
-            const busy = approveUser.isPending && approveUser.variables?.userId === user.id
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          {visibleUsers.map(u => {
+            const busy = approveUser.isPending && approveUser.variables?.userId === u.id
+            const isUserApproved = u.approved
+
             return (
-              <div key={user.id} className="admin-approval-row">
-                <Avatar user={user} size={38} />
-                <div className="admin-approval-copy">
-                  <strong>{user.name || user.username || user.email || 'User'}</strong>
-                  <span>{user.email || `@${user.username}`}</span>
+              <div
+                key={u.id}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem',
+                  padding: '0.85rem 1rem', borderRadius: '14px', background: '#0D0E12',
+                  border: isUserApproved ? '1px solid rgba(63, 221, 168, 0.2)' : '1px solid rgba(232, 178, 61, 0.25)',
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', minWidth: 0, flex: 1 }}>
+                  <Avatar user={u} size={40} />
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: '0.9rem', fontWeight: 800, color: '#F2EFE9', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {u.name || u.username || u.email || 'User'}
+                    </div>
+                    <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.72rem', color: '#9A9CA3', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {u.email || `@${u.username}`}
+                    </div>
+                  </div>
                 </div>
-                <span className={`admin-approval-status ${user.approved ? 'is-approved' : ''}`}>
-                  {user.approved ? <CheckCircle size={13} /> : <UserX size={13} />}
-                  {user.approved ? 'Approved' : 'Pending'}
-                </span>
+
+                {/* Status badge */}
+                <div style={{
+                  padding: '3px 8px', borderRadius: '6px',
+                  background: isUserApproved ? 'rgba(63, 221, 168, 0.14)' : 'rgba(232, 178, 61, 0.14)',
+                  border: isUserApproved ? '1px solid rgba(63, 221, 168, 0.3)' : '1px solid rgba(232, 178, 61, 0.3)',
+                  color: isUserApproved ? '#3FDDA8' : '#E8B23D',
+                  fontFamily: "'JetBrains Mono', monospace", fontSize: '0.7rem', fontWeight: 800,
+                  display: 'flex', alignItems: 'center', gap: 4
+                }}>
+                  {isUserApproved ? <CheckCircle2 size={12} /> : <Clock size={12} />}
+                  {isUserApproved ? 'APPROVED' : 'PENDING'}
+                </div>
+
+                {/* Action button */}
                 <button
                   type="button"
                   disabled={busy}
-                  className={user.approved ? 'admin-approval-action is-muted' : 'admin-approval-action'}
-                  onClick={() => approveUser.mutate({ userId: user.id, approved: !user.approved })}
+                  onClick={() => approveUser.mutate({ userId: u.id, approved: !u.approved })}
+                  style={{
+                    padding: '0.45rem 0.95rem', borderRadius: '10px', cursor: 'pointer',
+                    background: isUserApproved ? 'rgba(255, 255, 255, 0.06)' : 'linear-gradient(135deg, #FF7D4D, #FF6A3D)',
+                    border: isUserApproved ? '1px solid rgba(255, 255, 255, 0.12)' : 'none',
+                    color: isUserApproved ? '#9A9CA3' : '#1a0a04',
+                    fontSize: '0.78rem', fontWeight: 800, fontFamily: "'JetBrains Mono', monospace",
+                    display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0,
+                    transition: 'all 0.15s ease',
+                  }}
                 >
-                  {busy ? <LoadingSpinner size="sm" /> : user.approved ? <UserX size={14} /> : <UserCheck size={14} />}
-                  <span>{user.approved ? 'Revoke' : 'Approve'}</span>
+                  {busy ? (
+                    <LoadingSpinner size="sm" />
+                  ) : isUserApproved ? (
+                    <><UserX size={13} /> Revoke</>
+                  ) : (
+                    <><UserCheck size={13} /> Approve</>
+                  )}
                 </button>
               </div>
             )
           })}
+
           {visibleUsers.length === 0 && (
-            <div className="admin-approval-state">
-              No regular users yet. New signups will appear here after they create an account.
+            <div style={{ textAlign: 'center', padding: '2rem 1rem', color: '#9A9CA3', fontFamily: "'JetBrains Mono', monospace", fontSize: '0.8rem' }}>
+              No user approval requests in queue.
             </div>
           )}
         </div>

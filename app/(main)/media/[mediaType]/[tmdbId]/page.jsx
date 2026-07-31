@@ -5,8 +5,9 @@ import { useQuery } from '@tanstack/react-query'
 import { getMovieDetails, getPosterUrl, getBackdropUrl, getProviderLogoUrl, getRecommendations } from '@/lib/tmdb'
 import Image from 'next/image'
 import Link from 'next/link'
-import { ChevronDown, ChevronLeft, MonitorPlay, Play, ShieldAlert, ShoppingBag, Star, Tv, X, Calendar, Film, Globe, Users, Heart, Info, Bookmark, BookmarkCheck, SkipForward } from 'lucide-react'
+import { ChevronDown, ChevronLeft, MonitorPlay, Play, ShieldAlert, ShoppingBag, Star, Tv, X, Calendar, Film, Globe, Users, Heart, Info, Bookmark, BookmarkCheck, SkipForward, Share2 } from 'lucide-react'
 import { Plus } from 'lucide-react'
+import toast from 'react-hot-toast'
 import { LoadingSpinner, EmptyState, CardSkeleton } from '@/components/ui/LoadingSpinner'
 import Avatar from '@/components/ui/Avatar'
 import { getCategoryById, timeAgo, REACTIONS } from '@/lib/utils'
@@ -19,6 +20,7 @@ import dynamic from 'next/dynamic'
 import { addToWatchHistory } from '@/lib/watch-history'
 
 const AddMovieModal = dynamic(() => import('@/components/movie/AddMovieModal'), { ssr: false })
+const ShareModal = dynamic(() => import('@/components/feed/ShareModal'), { ssr: false })
 
 async function fetchMoviePosts(tmdbId, mediaType) {
   const res = await fetch(`/api/feed?tmdb=${tmdbId}&media=${mediaType}&page=0`)
@@ -51,14 +53,13 @@ const STREAM_SOURCES = [
 function Pill({ children, onClick }) {
   return (
     <button onClick={onClick} style={{
-      padding: '0.4rem 0.8rem',
-      background: 'rgba(255, 255, 255, 0.1)',
-      backdropFilter: 'blur(12px)',
-      WebkitBackdropFilter: 'blur(12px)',
-      border: '1px solid rgba(255, 255, 255, 0.15)',
-      borderRadius: '99px',
-      color: '#fff',
+      padding: '0.4rem 0.85rem',
+      background: '#15171C',
+      border: '1px solid rgba(255, 255, 255, 0.08)',
+      borderRadius: '10px',
+      color: '#F2EFE9',
       fontSize: '0.75rem',
+      fontFamily: "'JetBrains Mono', monospace",
       fontWeight: 600,
       display: 'flex',
       alignItems: 'center',
@@ -145,7 +146,7 @@ function ReviewMeta({ post }) {
   )
 }
 
-function StreamPlayer({ tmdbId, mediaType, seasons, movie }) {
+function StreamPlayer({ tmdbId, mediaType, seasons = [], movie, onClose }) {
   const isTV = mediaType === 'tv'
   const seasonOptions = useMemo(() => {
     const available = (seasons || [])
@@ -233,7 +234,6 @@ function StreamPlayer({ tmdbId, mediaType, seasons, movie }) {
     if (nextEpNum <= episodeCount) {
       return { season, episode: nextEpNum }
     }
-    // Check if next season exists
     const currentSeasonIdx = seasonOptions.findIndex(s => s.season_number === season)
     if (currentSeasonIdx !== -1 && currentSeasonIdx < seasonOptions.length - 1) {
       const nextSeason = seasonOptions[currentSeasonIdx + 1]
@@ -252,33 +252,72 @@ function StreamPlayer({ tmdbId, mediaType, seasons, movie }) {
     }
   }
 
+  const releaseYear = (movie?.release_date || movie?.first_air_date)?.split('-')[0] || ''
+
   return (
     <div className="stream-player">
-      <div className="stream-source-row" aria-label="Streaming source">
-        {STREAM_SOURCES.map((source) => (
-          <button
-            key={source.id}
-            type="button"
-            className={`stream-source-button ${source.id === sourceId ? 'is-active' : ''}`}
-            onClick={() => {
-              if (source.id === sourceId) return
-              setIframeLoaded(false)
-              setSourceId(source.id)
-            }}
-          >
-            {source.label}
-          </button>
-        ))}
+      {/* 1. Stream Top Header Bar (Prevents overlap with player controls) */}
+      <div style={{
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        padding: '10px 16px', background: '#15171C', border: '1px solid rgba(255,255,255,0.08)',
+        borderTopLeftRadius: 16, borderTopRightRadius: 16, borderBottom: 'none'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
+          <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#F2EFE9', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            Now playing · {movie?.title || movie?.name}
+          </span>
+          <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.68rem', color: '#9A9CA3', flexShrink: 0 }}>
+            {releaseYear}{releaseYear ? ' · ' : ''}SOURCE: {selectedSource.label.toUpperCase()}
+          </span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0, marginLeft: 10 }}>
+          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.68rem', fontWeight: 700, color: '#3FDDA8', display: 'flex', alignItems: 'center', gap: 5 }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#3FDDA8', boxShadow: '0 0 6px #3FDDA8' }} />
+            SANDBOXED
+          </div>
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              style={{
+                background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
+                color: '#F2EFE9', width: 26, height: 26, borderRadius: '50%',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', transition: 'all 0.15s ease'
+              }}
+              title="Close Player"
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
       </div>
 
-      <div className="stream-frame-shell">
+      {/* 2. Video Player Frame Shell */}
+      <div
+        className="stream-frame-shell"
+        style={{
+          position: 'relative',
+          width: '100%',
+          aspectRatio: '16 / 9',
+          borderBottomLeftRadius: 16,
+          borderBottomRightRadius: 16,
+          borderTopLeftRadius: 0,
+          borderTopRightRadius: 0,
+          overflow: 'hidden',
+          background: '#0D0E12',
+          border: '1px solid rgba(255,255,255,0.08)',
+          marginBottom: '1.25rem',
+          boxShadow: '0 20px 50px rgba(0,0,0,0.8)',
+        }}
+      >
         {!iframeLoaded && (
-          <div className="stream-loading">
-            <div className="stream-shimmer" />
-            <div className="stream-spinner" />
-            <p>Loading stream...</p>
+          <div className="stream-loading" style={{ position: 'absolute', inset: 0, zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#0D0E12' }}>
+            <LoadingSpinner size="md" />
+            <p style={{ marginTop: 12, color: '#9A9CA3', fontSize: '0.8rem', fontFamily: "'JetBrains Mono', monospace" }}>Loading stream...</p>
           </div>
         )}
+
         <iframe
           key={streamUrl}
           src={streamUrl}
@@ -317,6 +356,44 @@ function StreamPlayer({ tmdbId, mediaType, seasons, movie }) {
             </button>
           </motion.div>
         )}
+      </div>
+
+      {/* 2. STREAMING SOURCE Selector Row */}
+      <div style={{ marginBottom: '1.25rem' }}>
+        <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.08em', color: '#9A9CA3', marginBottom: 8, textTransform: 'uppercase' }}>
+          STREAMING SOURCE — SWITCH IF PLAYBACK STALLS
+        </div>
+        <div className="stream-source-row" aria-label="Streaming source" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '0.5rem' }}>
+          {STREAM_SOURCES.map((source) => {
+            const isActive = source.id === sourceId
+            return (
+              <button
+                key={source.id}
+                type="button"
+                className={`stream-source-button ${isActive ? 'is-active' : ''}`}
+                onClick={() => {
+                  if (source.id === sourceId) return
+                  setIframeLoaded(false)
+                  setSourceId(source.id)
+                }}
+                style={{
+                  minHeight: '44px',
+                  borderRadius: '12px',
+                  border: isActive ? '1px solid #FF6A3D' : '1px solid rgba(255,255,255,0.08)',
+                  background: isActive ? 'rgba(255,106,61,0.14)' : '#15171C',
+                  color: isActive ? '#FF6A3D' : '#9A9CA3',
+                  fontWeight: isActive ? 800 : 700,
+                  fontSize: '0.85rem',
+                  fontFamily: "'Manrope', sans-serif",
+                  cursor: 'pointer',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                {source.label}
+              </button>
+            )
+          })}
+        </div>
       </div>
 
       {isTV && (
@@ -382,8 +459,8 @@ function StreamPlayer({ tmdbId, mediaType, seasons, movie }) {
                     gap: '0.75rem',
                     padding: '0.6rem',
                     borderRadius: '12px',
-                    background: isActive ? 'rgba(168, 85, 247, 0.12)' : 'rgba(255, 255, 255, 0.02)',
-                    border: isActive ? '1px solid rgba(168, 85, 247, 0.4)' : '1px solid rgba(255, 255, 255, 0.05)',
+                    background: isActive ? 'rgba(255, 106, 61, 0.10)' : 'rgba(255, 255, 255, 0.02)',
+                    border: isActive ? '1px solid rgba(255, 106, 61, 0.4)' : '1px solid rgba(255, 255, 255, 0.05)',
                     cursor: 'pointer',
                     transition: 'all 0.2s ease',
                   }}
@@ -401,7 +478,7 @@ function StreamPlayer({ tmdbId, mediaType, seasons, movie }) {
                   {/* Info */}
                   <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '2px', justifyContent: 'center' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '4px' }}>
-                      <span style={{ fontSize: '0.8rem', fontWeight: 700, color: isActive ? '#d8b4fe' : '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <span style={{ fontSize: '0.8rem', fontWeight: 700, color: isActive ? '#FF6A3D' : '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {ep.episode_number}. {ep.name}
                       </span>
                       {ep.air_date && (
@@ -435,6 +512,46 @@ export default function MediaDetailPage({ params }) {
   const [activeTab, setActiveTab] = useState('overview')
   const [selectedVideoKey, setSelectedVideoKey] = useState(null)
   const [showAddModal, setShowAddModal] = useState(false)
+  const [showPartnerShare, setShowPartnerShare] = useState(false)
+  const [isSharingPartner, setIsSharingPartner] = useState(false)
+  const [sharePost, setSharePost] = useState(null)
+
+  const handleSharePartner = async () => {
+    if (!user) {
+      toast.error('Please sign in to share with a partner')
+      return
+    }
+    if (!movie) return
+
+    try {
+      setIsSharingPartner(true)
+      const res = await authFetch('/api/watchlist/direct', {
+        method: 'POST',
+        body: JSON.stringify({
+          tmdb_id: tmdbId,
+          title: movie.title || movie.name,
+          poster_path: movie.poster_path,
+          genres: movie.genres?.map(g => g.name) || [],
+          tmdb_rating: movie.vote_average,
+          release_year: (movie.release_date || movie.first_air_date)?.split('-')[0],
+          media_type: mediaType,
+        })
+      })
+      const data = await res.json()
+      if (data?.post_id || data?.id) {
+        setSharePost({ id: data.post_id || data.id, title: movie.title || movie.name })
+      } else {
+        setSharePost({ id: tmdbId, title: movie.title || movie.name })
+      }
+      setShowPartnerShare(true)
+    } catch (err) {
+      console.error('Error sharing with partner:', err)
+      setSharePost({ id: tmdbId, title: movie.title || movie.name })
+      setShowPartnerShare(true)
+    } finally {
+      setIsSharingPartner(false)
+    }
+  }
 
   // Anti-ad redirect protection (silently blocks auto-redirects and prompts for unsaved changes)
   useEffect(() => {
@@ -599,8 +716,23 @@ export default function MediaDetailPage({ params }) {
     ? `${Math.round(movie.episode_run_time.reduce((a, b) => a + b, 0) / movie.episode_run_time.length)}m` 
     : null
 
+  const handleShare = () => {
+    if (typeof window !== 'undefined') {
+      if (navigator.share) {
+        navigator.share({
+          title: movie.title || movie.name,
+          text: `Check out ${movie.title || movie.name} on WatchNest!`,
+          url: window.location.href,
+        }).catch(() => {})
+      } else {
+        navigator.clipboard.writeText(window.location.href)
+        toast.success('Link copied to clipboard!')
+      }
+    }
+  }
+
   return (
-    <div style={{ position: 'relative', minHeight: '100dvh', background: '#070914', overflowX: 'hidden' }}>
+    <div style={{ position: 'relative', minHeight: '100dvh', background: '#0A0B0E', overflowX: 'hidden' }}>
       
       {/* Blurred Cinematic Backdrop */}
       <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '80vh', zIndex: 0, overflow: 'hidden', pointerEvents: 'none' }}>
@@ -608,21 +740,29 @@ export default function MediaDetailPage({ params }) {
           <Image src={poster} alt="Background" fill sizes="100vw" priority
             style={{ objectFit: 'cover', filter: 'blur(60px) brightness(0.35)', transform: 'scale(1.2)' }} />
         )}
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(7,9,20,0) 0%, #070914 100%)' }} />
+        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, rgba(10,11,14,0) 0%, #0A0B0E 100%)' }} />
       </div>
 
       <div style={{ position: 'relative', zIndex: 10, maxWidth: isStreaming ? 1200 : 640, margin: '0 auto', padding: '1.25rem', transition: 'max-width 0.3s ease-in-out' }}>
         
         {/* Top Floating Nav */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', paddingTop: 'env(safe-area-inset-top)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem', paddingTop: 'env(safe-area-inset-top)' }}>
           <Pill onClick={() => router.back()}>
-            <ChevronLeft size={16} /> Back
+            <ChevronLeft size={14} /> Back
           </Pill>
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <div style={{
+            display: 'flex', gap: '0.4rem', alignItems: 'center', justifyContent: 'flex-end',
+            overflowX: 'auto', flexWrap: 'nowrap', scrollbarWidth: 'none', msOverflowStyle: 'none'
+          }}>
             {primaryGenre && <Pill>{primaryGenre}</Pill>}
             {runtime && <Pill>{runtime}</Pill>}
-            <Pill><span style={{ fontSize: '0.95rem' }}>🍅</span> {hasRating ? `${rtScore}%` : '❌'}</Pill>
-            <Pill><span style={{ fontSize: '0.65rem', padding: '1px 3px', background: '#fbbf24', color: '#000', borderRadius: '3px', fontWeight: '900', marginRight: '3px' }}>IMDb</span> {hasRating ? imdbScore : '❌'}</Pill>
+            {hasRating && <Pill><span style={{ fontSize: '0.85rem' }}>🍅</span> {rtScore}%</Pill>}
+            {hasRating && (
+              <Pill>
+                <span style={{ fontSize: '0.62rem', padding: '1px 4px', background: '#E8B23D', color: '#0A0B0E', borderRadius: '3px', fontWeight: '900', letterSpacing: '0.02em' }}>IMDb</span>
+                {imdbScore}
+              </Pill>
+            )}
           </div>
         </div>
 
@@ -636,16 +776,7 @@ export default function MediaDetailPage({ params }) {
               exit={{ opacity: 0, scale: 0.97 }}
               style={{ marginBottom: '1.5rem' }}
             >
-              <div className="stream-header">
-                <div>
-                  <span />
-                  <strong>Sandboxed Stream</strong>
-                </div>
-                <button type="button" onClick={() => setIsStreaming(false)}>
-                  <X size={13} /> Close Player
-                </button>
-              </div>
-              <StreamPlayer tmdbId={tmdbId} mediaType={mediaType} seasons={movie.seasons} movie={movie} />
+              <StreamPlayer tmdbId={tmdbId} mediaType={mediaType} seasons={movie.seasons} movie={movie} onClose={() => setIsStreaming(false)} />
             </motion.div>
           ) : (
             <motion.div
@@ -685,19 +816,19 @@ export default function MediaDetailPage({ params }) {
                   style={{
                     padding: '0.7rem 1.15rem', borderRadius: 99,
                     background: isSaved 
-                      ? 'linear-gradient(135deg, #10b981, #06b6d4)' 
+                      ? 'linear-gradient(135deg, #FF7D4D, #FF6A3D)' 
                       : 'rgba(0,0,0,0.6)',
                     backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
                     border: isSaved ? 'none' : '1px solid rgba(255,255,255,0.2)',
-                    color: '#fff', fontSize: '0.8rem', fontWeight: 800,
+                    color: isSaved ? '#1a0a04' : '#fff', fontSize: '0.8rem', fontWeight: 800,
                     display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer',
-                    boxShadow: isSaved ? '0 4px 16px rgba(16,185,129,0.45)' : 'none',
+                    boxShadow: isSaved ? '0 4px 16px rgba(255,106,61,0.45)' : 'none',
                     transition: 'all 0.2s',
                   }}
                   onMouseEnter={e => {
                     e.currentTarget.style.transform = 'scale(1.05)';
                     if (isSaved) {
-                      e.currentTarget.style.boxShadow = '0 6px 20px rgba(16,185,129,0.6)';
+                      e.currentTarget.style.boxShadow = '0 6px 20px rgba(255,106,61,0.65)';
                     } else {
                       e.currentTarget.style.background = 'rgba(0,0,0,0.8)';
                     }
@@ -705,7 +836,7 @@ export default function MediaDetailPage({ params }) {
                   onMouseLeave={e => {
                     e.currentTarget.style.transform = 'scale(1)';
                     if (isSaved) {
-                      e.currentTarget.style.boxShadow = '0 4px 16px rgba(16,185,129,0.45)';
+                      e.currentTarget.style.boxShadow = '0 4px 16px rgba(255,106,61,0.45)';
                     } else {
                       e.currentTarget.style.background = 'rgba(0,0,0,0.6)';
                     }
@@ -724,30 +855,30 @@ export default function MediaDetailPage({ params }) {
                   onClick={() => setShowAddModal(true)}
                   style={{
                     padding: '0.7rem 1.25rem', borderRadius: 99,
-                    background: 'linear-gradient(135deg, #7c3aed, #db2777)',
-                    border: 'none',
-                    color: '#fff', fontSize: '0.8rem', fontWeight: 800,
+                    background: 'rgba(255,255,255,0.08)',
+                    border: '1px solid rgba(255,255,255,0.14)',
+                    color: '#F2EFE9', fontSize: '0.8rem', fontWeight: 800,
                     display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer',
-                    boxShadow: '0 4px 16px rgba(124,58,237,0.45)',
+                    backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
                     transition: 'all 0.2s',
                   }}
-                  onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(124,58,237,0.65)' }}
-                  onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(124,58,237,0.45)' }}
+                  onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.background = 'rgba(255,255,255,0.14)' }}
+                  onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.background = 'rgba(255,255,255,0.08)' }}
                 >
                   <Plus size={15} /> Add Post
                 </button>
 
                 <button onClick={() => setIsStreaming(true)} style={{
                   padding: '0.7rem 1.25rem', borderRadius: 99,
-                  background: 'linear-gradient(135deg, #06b6d4, #3b82f6)',
-                  border: '1px solid rgba(6,182,212,0.4)',
-                  color: '#fff', fontSize: '0.8rem', fontWeight: 700,
+                  background: 'linear-gradient(135deg, #FF7D4D, #FF6A3D)',
+                  border: 'none',
+                  color: '#1a0a04', fontSize: '0.8rem', fontWeight: 800,
                   display: 'flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer',
-                  boxShadow: '0 4px 20px rgba(6,182,212,0.4)',
-                  transition: 'transform 0.2s, box-shadow 0.2s',
+                  boxShadow: '0 4px 20px rgba(255,106,61,0.5)',
+                  transition: 'filter 0.2s, transform 0.2s',
                 }}
-                onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.boxShadow = '0 8px 30px rgba(6,182,212,0.6)' }}
-                onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 4px 20px rgba(6,182,212,0.4)' }}>
+                onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.filter = 'brightness(1.08)' }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.filter = 'brightness(1)' }}>
                   <MonitorPlay size={15} /> Stream Now
                 </button>
               </div>
@@ -763,7 +894,7 @@ export default function MediaDetailPage({ params }) {
             {movie.title || movie.name}
           </h1>
           {movie.tagline && (
-            <p style={{ margin: '0 0 1rem', fontSize: '0.95rem', color: '#a78bfa', fontWeight: 600, fontStyle: 'italic', opacity: 0.9 }}>
+            <p style={{ margin: '0 0 1rem', fontSize: '0.9rem', color: '#9A9CA3', fontWeight: 500, fontStyle: 'italic', opacity: 0.85 }}>
               &quot;{movie.tagline}&quot;
             </p>
           )}
@@ -776,9 +907,65 @@ export default function MediaDetailPage({ params }) {
             {movie.vote_count > 0 && (
               <>
                 <span style={{ opacity: 0.35 }}>•</span>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}><Star size={11} fill="#fbbf24" color="#fbbf24" /> {rating} ({movie.vote_count.toLocaleString()} votes)</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}><Star size={11} fill="#E8B23D" color="#E8B23D" /> {rating} ({movie.vote_count.toLocaleString()} votes)</span>
               </>
             )}
+          </div>
+
+          {/* Action Buttons: Watchlist & Partner */}
+          <div style={{ display: 'flex', gap: '10px', marginTop: '1.15rem' }}>
+            <button
+              onClick={() => toggleDirect(movie)}
+              disabled={isDirectToggling}
+              style={{
+                flex: 1,
+                minHeight: '44px',
+                borderRadius: '12px',
+                border: 'none',
+                background: 'linear-gradient(135deg, #FF7D4D, #FF6A3D)',
+                color: '#1a0a04',
+                fontSize: '0.88rem',
+                fontWeight: '800',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                cursor: 'pointer',
+                boxShadow: '0 10px 24px -8px rgba(255,106,61,0.6)',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              {isDirectToggling ? (
+                <LoadingSpinner size="sm" />
+              ) : isSaved ? (
+                <><BookmarkCheck size={16} /> Watchlisted</>
+              ) : (
+                <><Plus size={16} /> Watchlist</>
+              )}
+            </button>
+
+            <button
+              onClick={handleSharePartner}
+              disabled={isSharingPartner}
+              style={{
+                minHeight: '44px',
+                padding: '0 20px',
+                borderRadius: '12px',
+                border: '1px solid rgba(232,178,61,0.35)',
+                background: 'rgba(232,178,61,0.14)',
+                color: '#E8B23D',
+                fontSize: '0.88rem',
+                fontWeight: '800',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+            >
+              {isSharingPartner ? <LoadingSpinner size="sm" /> : <><Users size={16} /> Partner</>}
+            </button>
           </div>
         </motion.div>
 
@@ -811,16 +998,14 @@ export default function MediaDetailPage({ params }) {
                   minWidth: '95px',
                   padding: '0.625rem 0.5rem',
                   borderRadius: '12px',
-                  border: '1px solid transparent',
-                  background: isTabActive ? 'rgba(255, 255, 255, 0.08)' : 'transparent',
-                  color: isTabActive ? '#fff' : '#94a3b8',
+                  background: isTabActive ? 'rgba(255, 106, 61, 0.1)' : 'transparent',
+                  color: isTabActive ? '#FF6A3D' : '#9A9CA3',
                   fontSize: '0.78rem',
                   fontWeight: isTabActive ? 800 : 600,
                   cursor: 'pointer',
                   textAlign: 'center',
                   transition: 'all 0.2s',
-                  boxShadow: isTabActive ? '0 4px 12px rgba(0,0,0,0.15)' : 'none',
-                  border: isTabActive ? '1px solid rgba(255, 255, 255, 0.08)' : '1px solid transparent',
+                  border: isTabActive ? '1px solid rgba(255, 106, 61, 0.28)' : '1px solid transparent',
                 }}
               >
                 {tab.label}
@@ -836,7 +1021,7 @@ export default function MediaDetailPage({ params }) {
               {/* Synopsis */}
               {movie.overview && (
                 <div style={{ marginBottom: '2.5rem' }}>
-                  <h2 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#fff', margin: '0 0 0.75rem', display: 'flex', alignItems: 'center', gap: 8 }}><Info size={16} color="#a78bfa" /> Synopsis</h2>
+                  <h2 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#F2EFE9', margin: '0 0 0.75rem', display: 'flex', alignItems: 'center', gap: 8 }}><Info size={16} color="#FF6A3D" /> Synopsis</h2>
                   <p style={{
                     margin: 0, color: '#cbd5e1', fontSize: '0.9375rem', lineHeight: 1.6,
                     display: expandedOverview ? 'block' : '-webkit-box',
@@ -848,10 +1033,10 @@ export default function MediaDetailPage({ params }) {
                     {movie.overview}
                   </p>
                   <button onClick={() => setExpandedOverview(!expandedOverview)} style={{
-                    background: 'none', border: 'none', color: '#a855f7', fontSize: '0.875rem', fontWeight: 700,
-                    padding: 0, marginTop: '0.5rem', cursor: 'pointer'
+                    background: 'none', border: 'none', color: '#FF6A3D', fontFamily: "'JetBrains Mono', monospace", fontSize: '0.8rem', fontWeight: 700,
+                    padding: 0, marginTop: '0.6rem', cursor: 'pointer'
                   }}>
-                    {expandedOverview ? 'Show Less' : 'Read More'}
+                    {expandedOverview ? 'Show less' : 'Read more'}
                   </button>
                 </div>
               )}
@@ -886,7 +1071,7 @@ export default function MediaDetailPage({ params }) {
                             }}
                           >
                             <Link href={`/media/movie/${part.id}`} style={{ textDecoration: 'none' }}>
-                              <div style={{ width: 100, aspectRatio: '2/3', borderRadius: 12, overflow: 'hidden', background: '#1c1c2e', marginBottom: '0.5rem', border: isCurrent ? '2px solid #a855f7' : '1px solid rgba(255,255,255,0.06)', boxShadow: '0 4px 12px rgba(0,0,0,0.2)', position: 'relative' }}>
+                              <div style={{ width: 100, aspectRatio: '2/3', borderRadius: 12, overflow: 'hidden', background: '#15171C', marginBottom: '0.5rem', border: isCurrent ? '2px solid #FF6A3D' : '1px solid rgba(255,255,255,0.06)', boxShadow: '0 4px 12px rgba(0,0,0,0.2)', position: 'relative' }}>
                                 {partPoster ? (
                                   <Image src={partPoster} alt={part.title} fill sizes="100px" style={{ objectFit: 'cover' }} />
                                 ) : (
@@ -906,21 +1091,33 @@ export default function MediaDetailPage({ params }) {
               {/* Cast */}
               {cast.length > 0 && (
                 <div style={{ marginBottom: '2.5rem' }}>
-                  <h2 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#fff', margin: '0 0 1rem', display: 'flex', alignItems: 'center', gap: 8 }}><Users size={16} color="#a78bfa" /> Main Cast</h2>
-                  <div style={{ display: 'flex', gap: '1rem', overflowX: 'auto', paddingBottom: '1rem', msOverflowStyle: 'none', scrollbarWidth: 'none' }} className="hide-scrollbar">
-                    {cast.map(person => (
-                      <div key={person.id} style={{ flexShrink: 0, width: 88, display: 'flex', flexDirection: 'column' }}>
-                        <div style={{ width: 88, height: 88, borderRadius: 22, overflow: 'hidden', background: '#1c1c2e', marginBottom: '0.5rem', border: '1px solid rgba(255,255,255,0.06)', boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}>
-                          {person.profile_path ? (
-                            <Image src={`https://image.tmdb.org/t/p/w185${person.profile_path}`} alt={person.name} width={88} height={88} style={{ objectFit: 'cover', width: '100%', height: '100%' }} />
-                          ) : (
-                            <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>👤</div>
-                          )}
+                  <h2 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#F2EFE9', margin: '0 0 1rem', display: 'flex', alignItems: 'center', gap: 8 }}><Users size={16} color="#FF6A3D" /> Main Cast</h2>
+                  <div style={{ display: 'flex', gap: '1.25rem', overflowX: 'auto', paddingBottom: '1rem', msOverflowStyle: 'none', scrollbarWidth: 'none' }} className="hide-scrollbar">
+                    {cast.map((person, pIdx) => {
+                      const initials = person.name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() || '?'
+                      const bgGradients = [
+                        'radial-gradient(circle at 35% 30%, #FF9166, #FF6A3D)',
+                        'radial-gradient(circle at 35% 30%, #5CE1E6, #0284C7)',
+                        'radial-gradient(circle at 35% 30%, #F472B6, #F2568C)',
+                        'radial-gradient(circle at 35% 30%, #818CF8, #4F46E5)',
+                        'radial-gradient(circle at 35% 30%, #FBBF24, #D97706)',
+                      ]
+                      const avatarBg = bgGradients[pIdx % bgGradients.length]
+
+                      return (
+                        <div key={person.id} style={{ flexShrink: 0, width: 76, textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                          <div style={{ width: 68, height: 68, borderRadius: '50%', overflow: 'hidden', background: avatarBg, marginBottom: '0.4rem', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 4px 12px rgba(0,0,0,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            {person.profile_path ? (
+                              <Image src={`https://image.tmdb.org/t/p/w185${person.profile_path}`} alt={person.name} width={68} height={68} style={{ objectFit: 'cover', width: '100%', height: '100%' }} />
+                            ) : (
+                              <span style={{ fontSize: '1.1rem', fontWeight: 800, color: '#1a0a04', fontFamily: "'JetBrains Mono', monospace" }}>{initials}</span>
+                            )}
+                          </div>
+                          <p style={{ margin: 0, fontSize: '0.72rem', fontWeight: 700, color: '#F2EFE9', lineHeight: 1.2, textAlign: 'center' }}>{person.name}</p>
+                          <p style={{ margin: '2px 0 0', fontSize: '0.62rem', color: '#9A9CA3', lineHeight: 1.2, textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 76 }}>{person.character || 'Lead'}</p>
                         </div>
-                        <p style={{ margin: 0, fontSize: '0.75rem', fontWeight: 700, color: '#e2e8f0', lineHeight: 1.2 }}>{person.name}</p>
-                        <p style={{ margin: '2px 0 0', fontSize: '0.65rem', color: '#64748b', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{person.character}</p>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 </div>
               )}
@@ -928,7 +1125,7 @@ export default function MediaDetailPage({ params }) {
               {/* Friend Reviews */}
               <div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
-                  <h2 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#fff', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}><Heart size={16} color="#a78bfa" /> Friend Reviews</h2>
+                  <h2 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#F2EFE9', margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}><Heart size={16} color="#F2568C" /> Friend Reviews</h2>
                   {posts?.length > 0 && (
                     <span style={{ padding: '2px 8px', borderRadius: 99, background: 'rgba(255,255,255,0.1)', color: '#fff', fontSize: '0.75rem', fontWeight: 700 }}>{posts.length}</span>
                   )}
@@ -1267,11 +1464,15 @@ export default function MediaDetailPage({ params }) {
 
         {/* Quick-add modal */}
         <AnimatePresence>
-          {showAddModal && movieForModal && (
+          {showAddModal && (
             <AddMovieModal
-              initialMovie={movieForModal}
+              initialMovie={movie}
               onClose={() => setShowAddModal(false)}
             />
+          )}
+
+          {showPartnerShare && sharePost && (
+            <ShareModal post={sharePost} onClose={() => setShowPartnerShare(false)} />
           )}
         </AnimatePresence>
 

@@ -77,12 +77,12 @@ export function AuthProvider({ children }) {
       if (mounted.current) setLoading(false)
     }, 5000)
 
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
       if (!mounted.current) return
-      if (session?.user) {
-        activeUserId.current = session.user.id
-        setUser(session.user)
-        const p = await fetchProfile(session.user)
+      if (user) {
+        activeUserId.current = user.id
+        setUser(user)
+        const p = await fetchProfile(user)
         if (mounted.current) setProfile(p)
       }
       clearTimeout(timeout)

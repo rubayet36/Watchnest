@@ -1,6 +1,11 @@
-const supabaseHost = process.env.NEXT_PUBLIC_SUPABASE_URL
-  ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).hostname
-  : undefined
+let supabaseHost
+if (process.env.NEXT_PUBLIC_SUPABASE_URL) {
+  try {
+    supabaseHost = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).hostname
+  } catch (e) {
+    // Ignore invalid URL during build initialization
+  }
+}
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {

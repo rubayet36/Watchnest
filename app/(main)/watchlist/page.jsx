@@ -34,23 +34,68 @@ const fetchPartnerFeed = async (uid) => {
   return data.posts || []
 }
 
-// ─── Shared Styles ─────────────────────────────────────────────
-const card = {
+// ─── Shared Card Style ──────────────────────────────────────────
+const cardStyle = {
   display: 'flex', alignItems: 'center', gap: '0.875rem',
   padding: '0.875rem', borderRadius: 16,
-  background: 'rgba(255,255,255,0.075)', border: '1px solid rgba(255,255,255,0.12)',
-  backdropFilter: 'blur(18px)',
+  background: '#15171C', border: '1px solid rgba(255,255,255,0.08)',
 }
 
-const pill = (active, color = '#7c3aed') => ({
-  display: 'flex', alignItems: 'center', gap: 5,
-  padding: '0.35rem 0.875rem', borderRadius: 99,
-  fontSize: '0.78rem', fontWeight: 700, cursor: 'pointer',
-  border: 'none', fontFamily: 'inherit', transition: 'all .15s',
-  background: active ? `${color}22` : 'rgba(255,255,255,0.05)',
-  color:      active ? color : '#64748b',
-  outline:    active ? `1px solid ${color}44` : '1px solid rgba(255,255,255,0.08)',
-})
+// ─── Top-Level Save Card Component ─────────────────────────────
+function SaveCard({ m, onToggleWatched, isPending }) {
+  const cat = getCategoryById(m.category)
+  const isAnime = m.genres?.includes('Animation') && m.media_type === 'tv'
+  const mediaLabel = isAnime ? 'ANIME' : (m.media_type === 'tv' ? 'TV' : 'MOVIE')
+  const mediaColor = isAnime ? '#E8B23D' : (m.media_type === 'tv' ? '#3FDDA8' : '#FF6A3D')
+
+  return (
+    <motion.article
+      layout="position"
+      className={`watchlist-save-card ${m.watched ? 'is-watched' : ''}`}
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.16 }}
+    >
+      <Link prefetch={false} href={`/media/${m.media_type || 'movie'}/${m.tmdb_id}`} className="watchlist-poster-link">
+        <div className="watchlist-poster">
+          <PosterImage src={getPosterUrl(m.poster_path)} alt={m.title} fill sizes="60px" />
+        </div>
+      </Link>
+      <div className="watchlist-save-main">
+        <Link prefetch={false} href={`/media/${m.media_type || 'movie'}/${m.tmdb_id}`} className="watchlist-title-link">
+          <h3>
+            {m.title}
+            <span className="watchlist-media-badge" style={{ borderColor: `${mediaColor}44`, background: `${mediaColor}18`, color: mediaColor }}>
+              {mediaLabel}
+            </span>
+          </h3>
+        </Link>
+        <div className="watchlist-meta-row">
+          {m.release_year && <span>{m.release_year}</span>}
+          {cat?.label && <span>{cat.label}</span>}
+          {m.shared_by_user && (
+            <span className="watchlist-shared-pill">
+              Shared by {m.shared_by_user.name}
+            </span>
+          )}
+        </div>
+      </div>
+      <button
+        type="button"
+        aria-label={m.watched ? `Mark ${m.title} as not watched` : `Mark ${m.title} as watched`}
+        disabled={isPending}
+        onClick={(e) => {
+          e.preventDefault()
+          onToggleWatched({ save_id: m.save_id, watched: !m.watched })
+        }}
+        className={`watchlist-status-button ${m.watched ? 'is-done' : ''}`}
+      >
+        {m.watched ? <CheckCircle size={15}/> : <Circle size={15}/>}
+        <span>{m.watched ? 'Done' : 'Watch'}</span>
+      </button>
+    </motion.article>
+  )
+}
 
 // ═══════════════════════════════════════════════════════════════
 // MY SAVES TAB
@@ -97,92 +142,66 @@ function MySavesTab() {
       </div>
     </div>
   )
+
   if (!user) return (
-    <div className="watchlist-empty glass">
-      <div className="watchlist-empty-icon"><Bookmark size={28}/></div>
-      <h3>Sign in again</h3>
-      <p>Your session could not be read. Sign in again and your saved movies will come back.</p>
-      <Link href="/login" style={{ display:'inline-block', marginTop:'1.25rem', padding:'0.625rem 1.25rem', background:'linear-gradient(135deg,#7c3aed,#db2777)', borderRadius:12, color:'white', fontWeight:600, textDecoration:'none', fontSize:'0.875rem' }}>Go to login</Link>
+    <div className="watchlist-empty">
+      <div className="watchlist-empty-icon" style={{ width: 60, height: 60, borderRadius: 16, marginBottom: 8 }}>
+        <Bookmark size={28}/>
+      </div>
+      <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '1.75rem', letterSpacing: '0.05em', color: '#F2EFE9', margin: '0 0 4px' }}>
+        SIGN IN REQUIRED
+      </h3>
+      <p style={{ fontSize: '0.85rem', color: '#9A9CA3', maxWidth: '22rem', margin: '0 0 1.25rem' }}>
+        Sign in to view your saved queue, track watched titles, and sync across devices.
+      </p>
+      <Link href="/login" className="btn-primary" style={{ padding: '0.6rem 1.4rem', textDecoration: 'none' }}>
+        Go to Login
+      </Link>
     </div>
   )
+
   if (isError) return (
-    <div className="watchlist-empty glass">
-      <div className="watchlist-empty-icon"><Bookmark size={28}/></div>
-      <h3>Could not load watchlist</h3>
-      <p>{error?.message || 'Please refresh and try again.'}</p>
+    <div className="watchlist-empty">
+      <div className="watchlist-empty-icon" style={{ width: 60, height: 60, borderRadius: 16, marginBottom: 8 }}>
+        <Bookmark size={28}/>
+      </div>
+      <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '1.75rem', letterSpacing: '0.05em', color: '#F2EFE9', margin: '0 0 4px' }}>
+        COULD NOT LOAD WATCHLIST
+      </h3>
+      <p style={{ fontSize: '0.85rem', color: '#9A9CA3' }}>{error?.message || 'Please refresh and try again.'}</p>
     </div>
   )
+
   if (!savedMovies.length) return (
-    <div className="watchlist-empty glass">
-      <div style={{ fontSize:'3rem', marginBottom:'1rem' }}>🔖</div>
-      <div className="watchlist-empty-icon"><Bookmark size={28}/></div>
-      <h3>No saves yet</h3>
-      <p>Save a movie or series from the feed and it will land here, ready when you are.</p>
-      <Link href="/" style={{ display:'inline-block', marginTop:'1.25rem', padding:'0.625rem 1.25rem', background:'linear-gradient(135deg,#7c3aed,#db2777)', borderRadius:12, color:'white', fontWeight:600, textDecoration:'none', fontSize:'0.875rem' }}>Browse feed →</Link>
+    <div className="watchlist-empty">
+      <div className="watchlist-empty-icon" style={{ width: 64, height: 64, borderRadius: 16, marginBottom: 10 }}>
+        <Bookmark size={30}/>
+      </div>
+      <h3 style={{ fontFamily: "'Bebas Neue', sans-serif", fontSize: '1.85rem', letterSpacing: '0.05em', color: '#F2EFE9', margin: '0 0 4px' }}>
+        NOTHING SAVED YET
+      </h3>
+      <p style={{ fontSize: '0.88rem', color: '#9A9CA3', maxWidth: '24rem', margin: '0 0 1.25rem' }}>
+        Bookmark a title from any detail page and it will be waiting for you here.
+      </p>
+      <Link href="/" className="btn-primary" style={{ padding: '0.65rem 1.5rem', textDecoration: 'none' }}>
+        Browse Feed →
+      </Link>
     </div>
   )
-
-  const SaveCard = ({ m }) => {
-    const cat = getCategoryById(m.category)
-    const isAnime = m.genres?.includes('Animation') && m.media_type === 'tv'
-    const mediaLabel = isAnime ? 'ANIME' : (m.media_type === 'tv' ? 'TV' : 'MOVIE')
-    const mediaColor = isAnime ? '#ec4899' : (m.media_type === 'tv' ? '#3b82f6' : '#10b981')
-
-    return (
-      <motion.article
-        className={`watchlist-save-card ${m.watched ? 'is-watched' : ''}`}
-        initial={{ opacity:0, y:6 }}
-        animate={{ opacity:1, y:0 }}
-        transition={{ duration:0.16 }}
-      >
-        <Link prefetch={false} href={`/media/${m.media_type || 'movie'}/${m.tmdb_id}`} className="watchlist-poster-link">
-          <div className="watchlist-poster">
-            <PosterImage src={getPosterUrl(m.poster_path)} alt={m.title} fill sizes="58px" />
-          </div>
-        </Link>
-        <div className="watchlist-save-main">
-          <Link prefetch={false} href={`/media/${m.media_type || 'movie'}/${m.tmdb_id}`} className="watchlist-title-link">
-            <h3>
-              {m.title}
-              <span className="watchlist-media-badge" style={{ '--media-color': mediaColor }}>{mediaLabel}</span>
-            </h3>
-          </Link>
-          <div className="watchlist-meta-row">
-            {m.release_year && <span>{m.release_year}</span>}
-            {cat?.label && <span>{cat.label}</span>}
-            {m.shared_by_user && (
-              <span className="watchlist-shared-pill">
-                Shared by {m.shared_by_user.name}
-              </span>
-            )}
-          </div>
-        </div>
-        <button
-          aria-label={m.watched ? `Mark ${m.title} as not watched` : `Mark ${m.title} as watched`}
-          disabled={toggleWatched.isPending}
-          onClick={() => toggleWatched.mutate({ save_id: m.save_id, watched: !m.watched })}
-          className={`watchlist-status-button ${m.watched ? 'is-done' : ''}`}
-        >
-          {m.watched ? <CheckCircle size={16}/> : <Circle size={16}/>}
-          <span>{m.watched ? 'Done' : 'Watch'}</span>
-        </button>
-      </motion.article>
-    )
-  }
 
   return (
     <div className="watchlist-stack">
       <section className="watchlist-stats" aria-label="Watchlist stats">
         <div>
-          <span>Queued</span>
+          <span>QUEUED</span>
           <strong>{toWatch.length}</strong>
         </div>
         <div>
-          <span>Watched</span>
+          <span>WATCHED</span>
           <strong>{watched.length}</strong>
         </div>
         <div>
-          <span>Shared</span>
+          <span>SHARED</span>
           <strong>{sharedCount}</strong>
         </div>
       </section>
@@ -193,7 +212,11 @@ function MySavesTab() {
             <p>Up Next</p>
             <span>{toWatch.length}</span>
           </div>
-          <div className="watchlist-save-list">{toWatch.map(m => <SaveCard key={m.save_id||m.id} m={m}/>)}</div>
+          <div className="watchlist-save-list">
+            {toWatch.map(m => (
+              <SaveCard key={m.save_id||m.id} m={m} onToggleWatched={toggleWatched.mutate} isPending={toggleWatched.isPending} />
+            ))}
+          </div>
         </section>
       )}
       {watched.length > 0 && (
@@ -203,7 +226,11 @@ function MySavesTab() {
             <p>Already Watched</p>
             <span>{watched.length}</span>
           </div>
-          <div className="watchlist-save-list">{watched.map(m => <SaveCard key={m.save_id||m.id} m={m}/>)}</div>
+          <div className="watchlist-save-list">
+            {watched.map(m => (
+              <SaveCard key={m.save_id||m.id} m={m} onToggleWatched={toggleWatched.mutate} isPending={toggleWatched.isPending} />
+            ))}
+          </div>
         </section>
       )}
     </div>
@@ -224,43 +251,47 @@ function PartnersTab({ currentUserId }) {
   })
 
   const sendRequest = useMutation({
-    mutationFn: (following_id) =>
-      authFetch('/api/follows', { method:'POST', body: JSON.stringify({ following_id }) }).then(r => r.json()),
-    onSuccess: () => { toast.success('Partner request sent!'); qc.invalidateQueries({ queryKey:['follows'] }) },
-    onError: e => toast.error(e.message),
-  })
-
-  const cancelRequest = useMutation({
-    mutationFn: (following_id) =>
-      authFetch('/api/follows', { method:'DELETE', body: JSON.stringify({ following_id }) }).then(r => r.json()),
-    onSuccess: () => { toast.success('Request cancelled'); qc.invalidateQueries({ queryKey:['follows'] }) },
-    onError: e => toast.error(e.message),
+    mutationFn: (targetId) =>
+      authFetch('/api/follows', { method: 'POST', body: JSON.stringify({ target_id: targetId }) })
+        .then(r => r.json()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['follows', currentUserId] })
+      toast.success('Partner request sent!')
+    },
+    onError: (e) => toast.error(e.message),
   })
 
   const respondRequest = useMutation({
-    mutationFn: ({ follow_id, status }) =>
-      authFetch('/api/follows', { method:'PATCH', body: JSON.stringify({ follow_id, status }) }).then(r => r.json()),
-    onSuccess: (_, vars) => {
-      toast.success(vars.status === 'accepted' ? 'Partner accepted!' : 'Request declined')
-      qc.invalidateQueries({ queryKey:['follows'] })
+    mutationFn: ({ followId, action }) =>
+      authFetch('/api/follows', { method: 'PATCH', body: JSON.stringify({ follow_id: followId, action }) })
+        .then(r => r.json()),
+    onSuccess: (_, { action }) => {
+      qc.invalidateQueries({ queryKey: ['follows', currentUserId] })
+      toast.success(action === 'accept' ? 'Partner accepted!' : 'Request declined')
     },
-    onError: e => toast.error(e.message),
+    onError: (e) => toast.error(e.message),
   })
 
-  if (!currentUserId) return (
-    <div className="watchlist-empty glass">
-      <div className="watchlist-empty-icon"><Users size={28}/></div>
-      <h3>Sign in again</h3>
-      <p>Your partner list needs an active session.</p>
+  const cancelRequest = useMutation({
+    mutationFn: (targetId) =>
+      authFetch('/api/follows', { method: 'DELETE', body: JSON.stringify({ target_id: targetId }) })
+        .then(r => r.json()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['follows', currentUserId] })
+      toast.success('Request cancelled')
+    },
+    onError: (e) => toast.error(e.message),
+  })
+
+  if (isLoading) return (
+    <div className="watchlist-stack">
+      <CardSkeleton/><CardSkeleton/>
     </div>
   )
 
-  if (isLoading) return <div style={{ display:'flex', justifyContent:'center', padding:'3rem' }}><LoadingSpinner size="md"/></div>
   if (isError) return (
-    <div className="watchlist-empty glass">
-      <div className="watchlist-empty-icon"><Users size={28}/></div>
-      <h3>Could not load partners</h3>
-      <p>{error?.message || 'Please refresh and try again.'}</p>
+    <div style={{ textAlign:'center', padding:'2rem', color:'#ef4444', fontSize:'0.875rem' }}>
+      {error?.message || 'Failed to load partners'}
     </div>
   )
 
@@ -268,139 +299,133 @@ function PartnersTab({ currentUserId }) {
     return <PartnerFeed partner={viewingPartner} onBack={() => setViewingPartner(null)} currentUserId={currentUserId} />
   }
 
-  const users    = data?.users    || []
-  const sent     = data?.sent     || []
-  const received = data?.received || []
+  const partners  = data?.partners  || []
+  const received  = data?.received  || []
+  const sent      = data?.sent      || []
+  const users     = data?.users     || []
 
-  // Build lookup maps
-  const sentMap     = Object.fromEntries(sent.map(s => [s.following_id, s]))     // userId → {id, status}
-  const receivedMap = Object.fromEntries(received.map(r => [r.follower_id, r]))  // userId → {id, status, profiles}
-
-  const partners        = users.filter(u => sentMap[u.id]?.status === 'accepted' || receivedMap[u.id]?.status === 'accepted')
-  const pendingSent     = users.filter(u => sentMap[u.id]?.status === 'pending')
-  const pendingReceived = received.filter(r => r.status === 'pending')
-  const others          = users.filter(u => !sentMap[u.id] && !receivedMap[u.id])
+  const connectedIds = new Set([
+    currentUserId,
+    ...partners.map(p => p.id),
+    ...received.map(r => r.sender.id),
+    ...sent.map(s => s.receiver.id),
+  ])
+  const others = users.filter(u => !connectedIds.has(u.id))
 
   return (
     <div style={{ display:'flex', flexDirection:'column', gap:'1.75rem' }}>
-
-      {/* ── Incoming Requests ─────────────────────────────── */}
-      {pendingReceived.length > 0 && (
+      
+      {/* ── Pending Received Requests ──────────────────────── */}
+      {received.length > 0 && (
         <section>
-          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:'0.75rem' }}>
-            <Bell size={14} style={{ color:'#f59e0b' }}/>
-            <p style={{ margin:0, fontSize:'0.75rem', fontWeight:700, color:'#f59e0b', textTransform:'uppercase', letterSpacing:'0.08em' }}>
-              Partner Requests ({pendingReceived.length})
+          <div style={{ display:'flex', alignItems:'center', gap:6, margin:'0 0 0.75rem' }}>
+            <Bell size={14} style={{ color: '#FF6A3D' }} />
+            <p style={{ margin:0, fontFamily:"'JetBrains Mono', monospace", fontSize:'0.75rem', fontWeight:800, color:'#FF6A3D', textTransform:'uppercase', letterSpacing:'0.08em' }}>
+              Pending Requests ({received.length})
             </p>
           </div>
           <div style={{ display:'flex', flexDirection:'column', gap:'0.625rem' }}>
-            {pendingReceived.map(req => {
-              const sender = req.profiles
-              return (
-                <motion.div key={req.id} initial={{ opacity:0, scale:0.97 }} animate={{ opacity:1, scale:1 }}
-                  style={{ ...card, border:'1px solid rgba(245,158,11,0.25)', background:'rgba(245,158,11,0.06)' }}>
-                  <Avatar user={sender} size={42}/>
-                  <div style={{ flex:1, minWidth:0 }}>
-                    <p style={{ margin:0, fontWeight:700, color:'#e2e8f0' }}>{sender?.name || sender?.username}</p>
-                    <p style={{ margin:'2px 0 0', fontSize:'0.75rem', color:'#64748b' }}>
-                      Wants to be your partner
-                    </p>
-                  </div>
-                  <div style={{ display:'flex', gap:6 }}>
-                    <button onClick={() => respondRequest.mutate({ follow_id: req.id, status:'accepted' })}
-                      style={{ display:'flex', alignItems:'center', gap:4, padding:'0.35rem 0.75rem', borderRadius:99, fontSize:'0.78rem', fontWeight:700, cursor:'pointer', border:'none', fontFamily:'inherit', background:'rgba(16,185,129,0.15)', color:'#6ee7b7', outline:'1px solid rgba(16,185,129,0.3)' }}>
-                      <Check size={13}/> Accept
-                    </button>
-                    <button onClick={() => respondRequest.mutate({ follow_id: req.id, status:'declined' })}
-                      style={{ display:'flex', alignItems:'center', gap:4, padding:'0.35rem 0.75rem', borderRadius:99, fontSize:'0.78rem', fontWeight:700, cursor:'pointer', border:'none', fontFamily:'inherit', background:'rgba(244,63,94,0.1)', color:'#f87171', outline:'1px solid rgba(244,63,94,0.2)' }}>
-                      <X size={13}/> Decline
-                    </button>
-                  </div>
-                </motion.div>
-              )
-            })}
-          </div>
-        </section>
-      )}
-
-      {/* ── Accepted Partners ─────────────────────────────── */}
-      {partners.length > 0 && (
-        <section>
-          <p style={{ margin:'0 0 0.75rem', fontSize:'0.75rem', fontWeight:700, color:'#8b5cf6', textTransform:'uppercase', letterSpacing:'0.08em' }}>
-            Your Partners ({partners.length})
-          </p>
-          <div style={{ display:'flex', flexDirection:'column', gap:'0.625rem' }}>
-            {partners.map(u => {
-              const row = sentMap[u.id] || receivedMap[u.id]
-              return (
-                <motion.div key={u.id} initial={{ opacity:0, y:4 }} animate={{ opacity:1, y:0 }} style={card}>
-                  <Avatar user={u} size={42}/>
-                  <div style={{ flex:1, minWidth:0 }}>
-                    <p style={{ margin:0, fontWeight:700, color:'#e2e8f0' }}>{u.name || u.username}</p>
-                    <p style={{ margin:'2px 0 0', fontSize:'0.75rem', color:'#64748b' }}>@{u.username}</p>
-                  </div>
-                  <div style={{ display:'flex', gap:6, flexShrink:0 }}>
-                    <button onClick={() => setViewingPartner(u)}
-                      style={{ display:'flex', alignItems:'center', gap:4, padding:'0.35rem 0.875rem', borderRadius:99, fontSize:'0.8rem', fontWeight:700, cursor:'pointer', border:'none', fontFamily:'inherit', background:'rgba(139,92,246,0.15)', color:'#c4b5fd' }}>
-                      <Film size={13}/> View
-                    </button>
-                    <button onClick={() => cancelRequest.mutate(u.id)}
-                      style={pill(true, '#10b981')}>
-                      <UserCheck size={13}/> Partner
-                    </button>
-                  </div>
-                </motion.div>
-              )
-            })}
-          </div>
-        </section>
-      )}
-
-      {/* ── Pending Sent ──────────────────────────────────── */}
-      {pendingSent.length > 0 && (
-        <section>
-          <p style={{ margin:'0 0 0.75rem', fontSize:'0.75rem', fontWeight:700, color:'#64748b', textTransform:'uppercase', letterSpacing:'0.08em' }}>
-            Pending Requests ({pendingSent.length})
-          </p>
-          <div style={{ display:'flex', flexDirection:'column', gap:'0.625rem' }}>
-            {pendingSent.map(u => (
-              <motion.div key={u.id} initial={{ opacity:0 }} animate={{ opacity:1 }} style={{ ...card, opacity:0.8 }}>
-                <Avatar user={u} size={42}/>
+            {received.map(r => (
+              <motion.div key={r.id} initial={{ opacity:0, y:4 }} animate={{ opacity:1, y:0 }} style={cardStyle}>
+                <Avatar user={r.sender} size={42}/>
                 <div style={{ flex:1, minWidth:0 }}>
-                  <p style={{ margin:0, fontWeight:700, color:'#e2e8f0' }}>{u.name || u.username}</p>
-                  <p style={{ margin:'2px 0 0', fontSize:'0.75rem', color:'#64748b' }}>Request pending…</p>
+                  <p style={{ margin:0, fontWeight:700, color:'#F2EFE9' }}>{r.sender.name || r.sender.username}</p>
+                  <p style={{ margin:'2px 0 0', fontSize:'0.75rem', color:'#9A9CA3' }}>Wants to share movie picks with you</p>
                 </div>
-                <button onClick={() => cancelRequest.mutate(u.id)}
-                  style={{ display:'flex', alignItems:'center', gap:4, padding:'0.35rem 0.875rem', borderRadius:99, fontSize:'0.78rem', fontWeight:700, cursor:'pointer', border:'none', fontFamily:'inherit', background:'rgba(255,255,255,0.05)', color:'#64748b', outline:'1px solid rgba(255,255,255,0.1)' }}>
-                  <Clock size={12}/> Pending
-                </button>
+                <div style={{ display:'flex', gap:6 }}>
+                  <button onClick={() => respondRequest.mutate({ followId: r.id, action: 'accept' })}
+                    style={{ display:'flex', alignItems:'center', gap:4, padding:'0.4rem 0.85rem', borderRadius:10, fontSize:'0.78rem', fontWeight:800, cursor:'pointer', border:'none', fontFamily:"'JetBrains Mono', monospace", background:'linear-gradient(135deg, #FF7D4D, #FF6A3D)', color:'#1a0a04' }}>
+                    <Check size={13}/> Accept
+                  </button>
+                  <button onClick={() => respondRequest.mutate({ followId: r.id, action: 'decline' })}
+                    style={{ display:'flex', alignItems:'center', gap:4, padding:'0.4rem 0.75rem', borderRadius:10, fontSize:'0.78rem', fontWeight:700, cursor:'pointer', border:'none', fontFamily:"'JetBrains Mono', monospace", background:'rgba(255,255,255,0.06)', color:'#9A9CA3' }}>
+                    <X size={13}/> Decline
+                  </button>
+                </div>
               </motion.div>
             ))}
           </div>
         </section>
       )}
 
+      {/* ── Active Movie Partners ──────────────────────────── */}
+      <section>
+        <p style={{ margin:'0 0 0.75rem', fontFamily:"'JetBrains Mono', monospace", fontSize:'0.75rem', fontWeight:800, color:'#9A9CA3', textTransform:'uppercase', letterSpacing:'0.08em' }}>
+          Movie Partners ({partners.length})
+        </p>
+        {partners.length === 0 ? (
+          <div style={{ textAlign:'center', padding:'2rem', background:'#15171C', borderRadius:16, border:'1px solid rgba(255,255,255,0.08)' }}>
+            <Users size={32} style={{ color: '#FF6A3D', marginBottom: 8 }} />
+            <p style={{ margin:0, color:'#F2EFE9', fontWeight:700 }}>No partners connected yet</p>
+            <p style={{ margin:'4px 0 0', fontSize:'0.8rem', color:'#64748b' }}>Connect with a partner below to share watchlists & see what they are watching.</p>
+          </div>
+        ) : (
+          <div style={{ display:'flex', flexDirection:'column', gap:'0.625rem' }}>
+            {partners.map(p => (
+              <motion.div key={p.id} initial={{ opacity:0, y:4 }} animate={{ opacity:1, y:0 }} style={cardStyle}>
+                <Avatar user={p} size={42}/>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <p style={{ margin:0, fontWeight:700, color:'#F2EFE9' }}>{p.name || p.username}</p>
+                  <p style={{ margin:'2px 0 0', fontSize:'0.75rem', color:'#9A9CA3' }}>@{p.username}</p>
+                </div>
+                <button onClick={() => setViewingPartner(p)}
+                  style={{ display:'flex', alignItems:'center', gap:5, padding:'0.4rem 0.9rem', borderRadius:10, fontSize:'0.78rem', fontWeight:800, cursor:'pointer', border:'none', fontFamily:"'JetBrains Mono', monospace", background:'rgba(255,106,61,0.15)', color:'#FF6A3D', outline:'1px solid rgba(255,106,61,0.4)' }}>
+                  <Film size={13}/> View Queue
+                </button>
+              </motion.div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* ── Sent Requests ──────────────────────────────────── */}
+      {sent.length > 0 && (
+        <section>
+          <p style={{ margin:'0 0 0.75rem', fontFamily:"'JetBrains Mono', monospace", fontSize:'0.75rem', fontWeight:800, color:'#9A9CA3', textTransform:'uppercase', letterSpacing:'0.08em' }}>
+            Sent Requests ({sent.length})
+          </p>
+          <div style={{ display:'flex', flexDirection:'column', gap:'0.625rem' }}>
+            {sent.map(s => {
+              const u = s.receiver
+              return (
+                <motion.div key={s.id} initial={{ opacity:0, y:4 }} animate={{ opacity:1, y:0 }} style={cardStyle}>
+                  <Avatar user={u} size={42}/>
+                  <div style={{ flex:1, minWidth:0 }}>
+                    <p style={{ margin:0, fontWeight:700, color:'#F2EFE9' }}>{u.name || u.username}</p>
+                    <p style={{ margin:'2px 0 0', fontSize:'0.75rem', color:'#9A9CA3' }}>Request pending…</p>
+                  </div>
+                  <button onClick={() => cancelRequest.mutate(u.id)}
+                    style={{ display:'flex', alignItems:'center', gap:4, padding:'0.35rem 0.875rem', borderRadius:99, fontSize:'0.78rem', fontWeight:700, cursor:'pointer', border:'none', fontFamily:"'Manrope', sans-serif", background:'rgba(255,255,255,0.05)', color:'#9A9CA3', outline:'1px solid rgba(255,255,255,0.1)' }}>
+                    <Clock size={12}/> Pending
+                  </button>
+                </motion.div>
+              )
+            })}
+          </div>
+        </section>
+      )}
+
       {/* ── Discover Users ────────────────────────────────── */}
       <section>
-        <p style={{ margin:'0 0 0.75rem', fontSize:'0.75rem', fontWeight:700, color:'#64748b', textTransform:'uppercase', letterSpacing:'0.08em' }}>
+        <p style={{ margin:'0 0 0.75rem', fontFamily:"'JetBrains Mono', monospace", fontSize:'0.75rem', fontWeight:800, color:'#9A9CA3', textTransform:'uppercase', letterSpacing:'0.08em' }}>
           Discover ({others.length})
         </p>
         {others.length === 0 && (
-          <div style={{ textAlign:'center', padding:'2rem', color:'#475569', fontSize:'0.875rem' }}>
-            {users.length === 0 ? 'No other users on WatchNest yet.' : 'You\'ve connected with everyone!'}
+          <div style={{ textAlign:'center', padding:'2rem', color:'#9A9CA3', fontSize:'0.875rem' }}>
+            {users.length === 0 ? 'No other users on WatchNest yet.' : "You've connected with everyone!"}
           </div>
         )}
         <div style={{ display:'flex', flexDirection:'column', gap:'0.625rem' }}>
           {others.map(u => (
-            <motion.div key={u.id} initial={{ opacity:0, y:4 }} animate={{ opacity:1, y:0 }} style={card}>
+            <motion.div key={u.id} initial={{ opacity:0, y:4 }} animate={{ opacity:1, y:0 }} style={cardStyle}>
               <Avatar user={u} size={42}/>
               <div style={{ flex:1, minWidth:0 }}>
-                <p style={{ margin:0, fontWeight:700, color:'#e2e8f0' }}>{u.name || u.username}</p>
-                <p style={{ margin:'2px 0 0', fontSize:'0.75rem', color:'#64748b' }}>@{u.username}</p>
-                {u.bio && <p style={{ margin:'3px 0 0', fontSize:'0.75rem', color:'#475569', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{u.bio}</p>}
+                <p style={{ margin:0, fontWeight:700, color:'#F2EFE9' }}>{u.name || u.username}</p>
+                <p style={{ margin:'2px 0 0', fontSize:'0.75rem', color:'#9A9CA3' }}>@{u.username}</p>
+                {u.bio && <p style={{ margin:'3px 0 0', fontSize:'0.75rem', color:'#64748b', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{u.bio}</p>}
               </div>
               <button onClick={() => sendRequest.mutate(u.id)}
-                style={{ display:'flex', alignItems:'center', gap:5, padding:'0.4rem 0.9rem', borderRadius:99, fontSize:'0.8rem', fontWeight:700, cursor:'pointer', border:'none', fontFamily:'inherit', background:'linear-gradient(135deg,#7c3aed,#a855f7)', color:'#fff', flexShrink:0 }}>
+                className="btn-primary" style={{ padding: '0.45rem 0.95rem', fontSize: '0.78rem', width: 'auto', flexShrink: 0, whiteSpace: 'nowrap' }}>
                 <UserPlus size={14}/> Add Partner
               </button>
             </motion.div>
@@ -429,8 +454,8 @@ function PartnerFeed({ partner, onBack, currentUserId }) {
         </button>
         <Avatar user={partner} size={36}/>
         <div>
-          <p style={{ margin:0, fontWeight:700, color:'#e2e8f0', fontSize:'0.9375rem' }}>{partner.name}</p>
-          <p style={{ margin:0, fontSize:'0.75rem', color:'#64748b' }}>@{partner.username} · {posts?.length || 0} movies</p>
+          <p style={{ margin:0, fontWeight:700, color:'#F2EFE9', fontSize:'0.9375rem' }}>{partner.name}</p>
+          <p style={{ margin:0, fontSize:'0.75rem', color:'#9A9CA3' }}>@{partner.username} · {posts?.length || 0} movies</p>
         </div>
       </div>
 
@@ -439,7 +464,7 @@ function PartnerFeed({ partner, onBack, currentUserId }) {
       ) : !posts?.length ? (
         <div style={{ textAlign:'center', padding:'3rem' }}>
           <div style={{ fontSize:'3rem', marginBottom:'0.75rem' }}>🎬</div>
-          <h3 style={{ color:'#e2e8f0', margin:'0 0 0.5rem' }}>{partner.name} has not added any movies yet</h3>
+          <h3 style={{ color:'#F2EFE9', margin:'0 0 0.5rem', fontFamily:"'Bebas Neue', sans-serif", fontSize:'1.5rem' }}>{partner.name} HAS NOT ADDED ANY MOVIES YET</h3>
         </div>
       ) : (
         <div style={{ display:'flex', flexDirection:'column', gap:'1rem' }}>
@@ -481,25 +506,23 @@ export default function WatchlistPage() {
   const pendingCount = (followData?.received || []).filter(r => r.status === 'pending').length
 
   return (
-    <div className="page-shell mobile-safe-bottom watchlist-page">
-      <header className="watchlist-hero glass">
+    <div className="page-shell mobile-safe-bottom watchlist-page" style={{ maxWidth: 840, margin: '0 auto', padding: '1rem 1.25rem' }}>
+      <header className="watchlist-hero">
         <div className="watchlist-hero-icon">
-          <Bookmark size={22}/>
+          <Bookmark size={24}/>
         </div>
         <div className="watchlist-hero-copy">
-          <p className="page-kicker">Library</p>
-          <h1 className="page-title">Watchlist</h1>
-          <p className="page-subtitle">Your saved queue, finished picks, and partner activity in one fast view.</p>
+          <h1 className="page-title">MY WATCHLIST</h1>
         </div>
-        <div className="watchlist-hero-signal" aria-hidden="true">
-          <Sparkles size={16}/>
-          <span>Ready</span>
+        <div className="watchlist-hero-signal">
+          <Sparkles size={14}/>
+          <span>READY</span>
         </div>
       </header>
 
       <div className="watchlist-tabs" role="tablist" aria-label="Watchlist sections">
-        <WatchlistTab id="saves" label="My Saves" icon={<ListChecks size={16}/>} active={tab === 'saves'} onClick={setTab} />
-        <WatchlistTab id="partners" label="Partners" icon={<Users size={16}/>} active={tab === 'partners'} pendingCount={pendingCount} onClick={setTab} />
+        <WatchlistTab id="saves" label="MY SAVES" icon={<ListChecks size={16}/>} active={tab === 'saves'} onClick={setTab} />
+        <WatchlistTab id="partners" label="PARTNERS" icon={<Users size={16}/>} active={tab === 'partners'} pendingCount={pendingCount} onClick={setTab} />
       </div>
 
       <AnimatePresence mode="wait">

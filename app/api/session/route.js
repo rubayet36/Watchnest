@@ -12,14 +12,11 @@ export async function GET() {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
       { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } }
     )
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) return NextResponse.json({ session: null })
+    const { data: { user }, error } = await supabase.auth.getUser()
+    if (error || !user) return NextResponse.json({ session: null })
     return NextResponse.json({
       session: {
-        access_token:  session.access_token,
-        refresh_token: session.refresh_token,
-        expires_at:    session.expires_at,
-        user:          session.user,
+        user,
       }
     })
   } catch (e) {

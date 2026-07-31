@@ -179,27 +179,6 @@ export async function GET(request) {
     const from = page * PAGE_SIZE
     const to = from + PAGE_SIZE - 1
 
-    if (!tmdbFilter && !mediaFilter) {
-      const { data: authData } = await supabase.auth.getUser()
-      const { data: rpcRows, error: rpcError } = await supabase.rpc('get_feed_v2', {
-        p_viewer_id: authData?.user?.id || null,
-        p_page: page,
-        p_page_size: PAGE_SIZE,
-        p_genre: genreFilter,
-        p_user_filter: userFilter || null,
-      })
-
-      if (!rpcError && Array.isArray(rpcRows)) {
-        const filtered = rpcRows.map(normalizeAggregatedPost).filter(post => post.personal_note !== '__system_watchlist_only__')
-        return NextResponse.json({
-          posts: filtered.slice(0, PAGE_SIZE),
-          nextPage: rpcRows.length > PAGE_SIZE ? page + 1 : null,
-        })
-      }
-
-      console.warn('[feed] get_feed_v2 unavailable, using legacy merge:', rpcError?.message)
-    }
-
     const data = await fetchLegacyFeed(supabase, { genreFilter, userFilter, tmdbFilter, mediaFilter })
 
     if (tmdbFilter) {

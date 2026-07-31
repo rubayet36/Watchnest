@@ -188,12 +188,32 @@ export default function AnimeWatchPage({ params }) {
           
           {/* Left Column: Player & Servers */}
           <div style={{ minWidth: 0 }}>
+            {/* Stream Top Header Bar */}
+            <div style={{
+              display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              padding: '10px 16px', background: '#15171C', border: '1px solid rgba(255,255,255,0.08)',
+              borderTopLeftRadius: 16, borderTopRightRadius: 16, borderBottom: 'none'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
+                <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#F2EFE9', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  Now playing · Episode {epNum}
+                </span>
+                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.68rem', color: '#9A9CA3', flexShrink: 0 }}>
+                  SERVER: {activeServer.name.toUpperCase()}
+                </span>
+              </div>
+              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.68rem', fontWeight: 700, color: '#3FDDA8', display: 'flex', alignItems: 'center', gap: 5 }}>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#3FDDA8', boxShadow: '0 0 6px #3FDDA8' }} />
+                SANDBOXED
+              </div>
+            </div>
+
             {/* Video Player Shell */}
-            <div className="stream-frame-shell" style={{ position: 'relative', width: '100%', aspectRatio: '16/9', borderRadius: 20, overflow: 'hidden', background: '#0d0d1a', boxShadow: '0 24px 60px rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.1)', marginBottom: '1.5rem' }}>
+            <div className="stream-frame-shell" style={{ position: 'relative', width: '100%', aspectRatio: '16/9', borderBottomLeftRadius: 16, borderBottomRightRadius: 16, borderTopLeftRadius: 0, borderTopRightRadius: 0, overflow: 'hidden', background: '#0D0E12', boxShadow: '0 24px 60px rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.08)', marginBottom: '1.25rem' }}>
               {!iframeLoaded && (
-                <div style={{ position: 'absolute', inset: 0, zIndex: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1rem', background: 'linear-gradient(135deg, #0d0d1a 0%, #1a1a2e 50%, #0d0d1a 100%)' }}>
-                  <div style={{ width: '44px', height: '44px', borderRadius: '50%', border: '3px solid rgba(255,255,255,0.08)', borderTopColor: '#f47521', animation: 'spin 0.85s linear infinite' }} />
-                  <p style={{ margin: 0, color: '#94a3b8', fontSize: '0.8rem', fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase' }}>Connecting Server...</p>
+                <div style={{ position: 'absolute', inset: 0, zIndex: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', background: '#0D0E12' }}>
+                  <LoadingSpinner size="md" />
+                  <p style={{ margin: 0, color: '#9A9CA3', fontSize: '0.8rem', fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>Connecting Server...</p>
                 </div>
               )}
 
@@ -232,10 +252,10 @@ export default function AnimeWatchPage({ params }) {
 
             {/* Server switcher row */}
             <div style={{ marginBottom: '1.5rem' }}>
-              <h3 style={{ fontSize: '0.8rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 0.5rem 0' }}>
-                Select Stream Server
-              </h3>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.45rem', padding: '0.35rem', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', background: 'rgba(255,255,255,0.045)' }}>
+              <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.08em', color: '#9A9CA3', marginBottom: 8, textTransform: 'uppercase' }}>
+                STREAMING SERVER — SWITCH IF PLAYBACK STALLS
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.5rem' }}>
                 {watchData.servers.map((server, idx) => {
                   const isActive = server.url === activeServer.url
                   return (
@@ -244,11 +264,12 @@ export default function AnimeWatchPage({ params }) {
                       type="button"
                       onClick={() => handleServerChange(server)}
                       style={{
-                        minWidth: 0, minHeight: '38px', borderRadius: '12px', cursor: 'pointer',
-                        border: isActive ? '1px solid rgba(244,117,33,0.4)' : '1px solid transparent',
-                        background: isActive ? 'rgba(244,117,33,0.16)' : 'transparent',
-                        color: isActive ? '#fff' : '#94a3b8',
-                        fontSize: '0.76rem', fontWeight: 800, transition: 'all 0.15s ease'
+                        minWidth: 0, minHeight: '44px', borderRadius: '12px', cursor: 'pointer',
+                        border: isActive ? '1px solid #FF6A3D' : '1px solid rgba(255,255,255,0.08)',
+                        background: isActive ? 'rgba(255,106,61,0.14)' : '#15171C',
+                        color: isActive ? '#FF6A3D' : '#9A9CA3',
+                        fontSize: '0.85rem', fontWeight: isActive ? 800 : 700,
+                        fontFamily: "'Manrope', sans-serif", transition: 'all 0.15s ease'
                       }}
                     >
                       {server.name}

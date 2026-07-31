@@ -260,27 +260,19 @@ export default function AnimeDetailPage({ params }) {
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                   <Link
                     href={`/anime/watch/${firstEpisode.id}?malId=${animeData.idMal || ''}&ep=${firstEpisode.episodeNumber}&anilistId=${animeId}`}
+                    className="btn-primary"
                     style={{
                       textDecoration: 'none',
-                      padding: '0.55rem 1.15rem',
-                      borderRadius: '99px',
-                      background: 'linear-gradient(135deg, #f47521, #ff9e59)',
-                      border: '1px solid rgba(244, 117, 33, 0.4)',
-                      color: '#fff',
-                      fontSize: '0.8rem',
+                      padding: '0.55rem 1.25rem',
+                      fontSize: '0.82rem',
                       fontWeight: 800,
                       display: 'flex',
                       alignItems: 'center',
                       gap: '6px',
-                      cursor: 'pointer',
-                      boxShadow: '0 4px 16px rgba(244, 117, 33, 0.4)',
-                      transition: 'all 0.2s ease',
                       whiteSpace: 'nowrap'
                     }}
-                    onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.boxShadow = '0 6px 20px rgba(244, 117, 33, 0.6)' }}
-                    onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 4px 16px rgba(244, 117, 33, 0.4)' }}
                   >
-                    <Play size={13} fill="#fff" stroke="none" /> Watch Now
+                    <Play size={14} fill="currentColor" stroke="none" /> WATCH NOW
                   </Link>
 
                   {user && (
@@ -289,25 +281,21 @@ export default function AnimeDetailPage({ params }) {
                       disabled={isDirectToggling}
                       style={{
                         padding: '0.55rem 1.15rem',
-                        borderRadius: '99px',
-                        background: isSaved ? 'linear-gradient(135deg, #10b981, #06b6d4)' : 'rgba(0,0,0,0.6)',
-                        backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)',
-                        border: isSaved ? 'none' : '1px solid rgba(255,255,255,0.2)',
-                        color: '#fff',
+                        borderRadius: '12px',
+                        background: isSaved ? 'rgba(63,221,168,0.15)' : 'rgba(255,255,255,0.06)',
+                        border: isSaved ? '1px solid #3FDDA8' : '1px solid rgba(255,255,255,0.12)',
+                        color: isSaved ? '#3FDDA8' : '#F2EFE9',
                         fontSize: '0.8rem',
                         fontWeight: 800,
                         display: 'flex',
                         alignItems: 'center',
                         gap: '6px',
                         cursor: 'pointer',
-                        boxShadow: isSaved ? '0 4px 16px rgba(16,185,129,0.45)' : 'none',
                         transition: 'all 0.2s ease',
                       }}
-                      onMouseEnter={e => { if (!isSaved) e.currentTarget.style.background = 'rgba(255,255,255,0.15)' }}
-                      onMouseLeave={e => { if (!isSaved) e.currentTarget.style.background = 'rgba(0,0,0,0.6)' }}
                     >
-                      {isSaved ? <BookmarkCheck size={13} /> : <Bookmark size={13} />}
-                      {isSaved ? 'Saved' : 'Save'}
+                      {isSaved ? <BookmarkCheck size={14} /> : <Bookmark size={14} />}
+                      {isSaved ? 'Watchlisted' : '+ Watchlist'}
                     </button>
                   )}
                 </div>
@@ -320,30 +308,30 @@ export default function AnimeDetailPage({ params }) {
         <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.75rem', flexWrap: 'wrap' }}>
           {/* Sub/Dub Pill Select */}
           <div style={{
-            display: 'flex', padding: '3px', background: 'rgba(255,255,255,0.04)',
+            display: 'flex', padding: '3px', background: '#15171C',
             border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', gap: '2px'
           }}>
             <button
               onClick={() => setIsDub(false)}
               style={{
                 padding: '0.4rem 0.85rem', border: 'none', borderRadius: '9px',
-                background: !isDub ? 'rgba(244,117,33,0.18)' : 'transparent',
-                color: !isDub ? '#f47521' : '#94a3b8',
-                fontSize: '0.76rem', fontWeight: 800, cursor: 'pointer', transition: 'all 0.15s'
+                background: !isDub ? 'linear-gradient(135deg, #FF7D4D, #FF6A3D)' : 'transparent',
+                color: !isDub ? '#1a0a04' : '#9A9CA3', fontWeight: 800, fontSize: '0.78rem',
+                fontFamily: "'JetBrains Mono', monospace", cursor: 'pointer'
               }}
             >
-              🇯🇵 Subbed
+              SUB
             </button>
             <button
               onClick={() => setIsDub(true)}
               style={{
                 padding: '0.4rem 0.85rem', border: 'none', borderRadius: '9px',
-                background: isDub ? 'rgba(244,117,33,0.18)' : 'transparent',
-                color: isDub ? '#f47521' : '#94a3b8',
-                fontSize: '0.76rem', fontWeight: 800, cursor: 'pointer', transition: 'all 0.15s'
+                background: isDub ? 'linear-gradient(135deg, #FF7D4D, #FF6A3D)' : 'transparent',
+                color: isDub ? '#1a0a04' : '#9A9CA3', fontWeight: 800, fontSize: '0.78rem',
+                fontFamily: "'JetBrains Mono', monospace", cursor: 'pointer'
               }}
             >
-              🇺🇸 Dubbed
+              DUB
             </button>
           </div>
         </div>

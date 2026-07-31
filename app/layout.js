@@ -4,9 +4,7 @@ import QueryProvider from '@/components/providers/QueryProvider'
 import { Toaster } from 'react-hot-toast'
 import ClientProviders from '@/components/providers/ClientProviders'
 import ShaderBackdrop from '@/components/layout/ShaderBackdrop'
-import { ThemeProvider } from '@/context/ThemeContext'
 import localFont from 'next/font/local'
-import Script from 'next/script'
 
 const geist = localFont({
   src: '../public/fonts/geist-latin.woff2',
@@ -39,37 +37,34 @@ export const metadata = {
 }
 
 export const viewport = {
-  themeColor: '#7c3aed',
+  themeColor: '#FF6A3D',
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
 }
 
-const themeInitScript = `
-  try {
-    var theme = localStorage.getItem('watchnest-theme') === 'light' ? 'light' : 'dark';
-    document.documentElement.dataset.theme = theme;
-    document.documentElement.style.colorScheme = theme;
-  } catch (_) {
-    document.documentElement.dataset.theme = 'dark';
-    document.documentElement.style.colorScheme = 'dark';
-  }
-`
 
 export default function RootLayout({ children }) {
   return (
     <html
       lang="en"
       className={`${geist.variable} ${gambarino.variable}`}
-      data-theme="dark"
+      data-theme="oled"
+      data-accent="cyan"
       data-scroll-behavior="smooth"
       style={{ colorScheme: 'dark' }}
       suppressHydrationWarning
     >
       <head>
+        {/* Google Fonts: Bebas Neue + Manrope + JetBrains Mono */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Manrope:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+          rel="stylesheet"
+        />
         <link rel="preconnect" href="https://image.tmdb.org" />
-        <Script id="watchnest-theme-init" strategy="beforeInteractive" dangerouslySetInnerHTML={{ __html: themeInitScript }} />
         {/* PWA manifest */}
         <link rel="manifest" href="/api/manifest" />
         {/* iOS PWA */}
@@ -79,30 +74,28 @@ export default function RootLayout({ children }) {
         <meta name="apple-mobile-web-app-title" content="WatchNest" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
-        <meta name="msapplication-TileColor" content="#7c3aed" />
+        <meta name="msapplication-TileColor" content="#FF6A3D" />
       </head>
       <body suppressHydrationWarning>
         <ShaderBackdrop />
-        <ThemeProvider>
-          <QueryProvider>
-            <AuthProvider>
-              {children}
-              <Toaster
-                position="bottom-right"
-                toastOptions={{
-                  style: {
-                    background: 'var(--toast-bg)',
-                    color: 'var(--text)',
-                    border: '1px solid var(--glass-border)',
-                    borderRadius: 14,
-                    fontFamily: 'var(--font-app), ui-sans-serif, system-ui, sans-serif',
-                  },
-                }}
-              />
-              <ClientProviders />
-            </AuthProvider>
-          </QueryProvider>
-        </ThemeProvider>
+        <QueryProvider>
+          <AuthProvider>
+            {children}
+            <Toaster
+              position="bottom-right"
+              toastOptions={{
+                style: {
+                  background: 'var(--toast-bg)',
+                  color: 'var(--text)',
+                  border: '1px solid var(--glass-border)',
+                  borderRadius: 14,
+                  fontFamily: 'var(--font-app), ui-sans-serif, system-ui, sans-serif',
+                },
+              }}
+            />
+            <ClientProviders />
+          </AuthProvider>
+        </QueryProvider>
       </body>
     </html>
   )

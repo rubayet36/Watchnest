@@ -1,26 +1,48 @@
 'use client'
 
-import { Moon, Sun } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Moon, Sun, Zap } from 'lucide-react'
 import { useTheme } from '@/context/ThemeContext'
 
 export default function ThemeToggle({ compact = false }) {
   const { theme, toggleTheme } = useTheme()
-  const isLight = theme === 'light'
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  const currentTheme = mounted ? theme : 'oled'
+  const isLight = currentTheme === 'light'
+  const isOled = currentTheme === 'oled'
+
+  const getIcon = () => {
+    if (isLight) return <Sun size={15} />
+    if (isOled) return <Zap size={15} />
+    return <Moon size={15} />
+  }
+
+  const getLabel = () => {
+    if (isLight) return 'Light'
+    if (isOled) return 'OLED'
+    return 'Dark'
+  }
 
   return (
     <button
       type="button"
       onClick={toggleTheme}
       className={compact ? 'theme-toggle theme-toggle-compact' : 'theme-toggle'}
-      aria-label={`Switch to ${isLight ? 'dark' : 'light'} mode`}
-      title={`Switch to ${isLight ? 'dark' : 'light'} mode`}
+      aria-label={`Switch theme (Current: ${getLabel()})`}
+      title={`Theme: ${getLabel()} (Click to toggle)`}
+      suppressHydrationWarning
     >
-      <span className="theme-toggle-track">
-        <span className="theme-toggle-thumb">
-          {isLight ? <Sun size={15} /> : <Moon size={15} />}
+      <span className="theme-toggle-track" suppressHydrationWarning>
+        <span className="theme-toggle-thumb" suppressHydrationWarning>
+          {getIcon()}
         </span>
       </span>
-      {!compact && <span>{isLight ? 'Light' : 'Dark'}</span>}
+      {!compact && <span suppressHydrationWarning>{getLabel()}</span>}
 
       <style>{`
         .theme-toggle {
@@ -35,7 +57,7 @@ export default function ThemeToggle({ compact = false }) {
           color: var(--text);
           cursor: pointer;
           font-size: 0.82rem;
-          font-weight: 700;
+          font-weight: 750;
           padding: 0.35rem 0.75rem 0.35rem 0.4rem;
           transition: background 0.16s ease, border-color 0.16s ease, transform 0.16s ease;
         }
@@ -66,7 +88,7 @@ export default function ThemeToggle({ compact = false }) {
           justify-content: center;
           width: 22px;
           height: 22px;
-          margin-left: ${isLight ? (compact ? '5px' : '11px') : '1px'};
+          margin-left: ${isLight ? (compact ? '5px' : '11px') : isOled ? '1px' : '6px'};
           border-radius: 999px;
           background: var(--toggle-thumb);
           color: var(--toggle-icon);
