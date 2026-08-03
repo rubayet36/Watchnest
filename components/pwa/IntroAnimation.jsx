@@ -18,11 +18,10 @@ export default function IntroAnimation() {
     if (!seen) {
       sessionStorage.setItem('wn_intro_seen', '1')
 
-      const showTimer = setTimeout(() => setShow(true), 0)
+      setShow(true)
       const exitTimer = setTimeout(() => setExit(true), 3600)
       const unmountTimer = setTimeout(() => setShow(false), 4400)
       return () => {
-        clearTimeout(showTimer)
         clearTimeout(exitTimer)
         clearTimeout(unmountTimer)
       }

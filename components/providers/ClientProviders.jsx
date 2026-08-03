@@ -1,6 +1,7 @@
 'use client'
 
 import dynamic from 'next/dynamic'
+import IntroAnimation from '@/components/pwa/IntroAnimation'
 
 // ssr: false is only allowed inside Client Components.
 // loading/error fallbacks prevent ChunkLoadError (stale chunk after HMR restart)
@@ -13,10 +14,6 @@ const ServiceWorkerRegistrar = dynamic(
 )
 const InstallPrompt = dynamic(
   () => import('@/components/pwa/InstallPrompt'),
-  { ssr: false, loading: noop }
-)
-const IntroAnimation = dynamic(
-  () => import('@/components/pwa/IntroAnimation'),
   { ssr: false, loading: noop }
 )
 
