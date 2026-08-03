@@ -52,11 +52,9 @@ export default function ProfilePage({ params }) {
   const displayProfile = isOwnProfile
     ? { ...(profile || {}), ...(myProfile || {}) }
     : profile
-  const isAdminProfile = (
-    myProfile?.account_type === 'admin' ||
-    profile?.account_type === 'admin' ||
-    displayProfile?.account_type === 'admin'
-  )
+  const isViewerAdmin = myProfile?.account_type === 'admin'
+  const isTargetAdmin = displayProfile?.account_type === 'admin'
+  const showAdminApprovalPanel = isViewerAdmin && isTargetAdmin
 
   const totalMovies = posts?.length || 0
   const movieCount = posts?.filter(p => p.media_type === 'movie').length || 0
@@ -342,7 +340,7 @@ export default function ProfilePage({ params }) {
       </motion.div>
 
       {/* Admin Panel for Admins */}
-      {isAdminProfile && <AdminApprovalPanel />}
+      {showAdminApprovalPanel && <AdminApprovalPanel />}
 
       {/* Category filter & View toggle bar */}
       {posts && posts.length > 0 && (

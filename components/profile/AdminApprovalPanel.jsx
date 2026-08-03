@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { CheckCircle2, ShieldCheck, UserCheck, UserX, Clock, ShieldAlert } from 'lucide-react'
 import Avatar from '@/components/ui/Avatar'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
+import { useAuth } from '@/context/AuthContext'
 
 function withTimeout(promise, message, timeoutMs = 8_000) {
   let timer
@@ -35,13 +36,19 @@ async function fetchAdminUsers() {
 }
 
 export default function AdminApprovalPanel() {
+  const { profile } = useAuth()
+  const isViewerAdmin = profile?.account_type === 'admin'
+
   const queryClient = useQueryClient()
   const { data: users = [], isLoading, isError, error, refetch } = useQuery({
     queryKey: ['admin-users'],
     queryFn: fetchAdminUsers,
+    enabled: isViewerAdmin,
     retry: false,
     staleTime: 15_000,
   })
+
+  if (!isViewerAdmin) return null
 
   const approveUser = useMutation({
     mutationFn: async ({ userId, approved }) => {
