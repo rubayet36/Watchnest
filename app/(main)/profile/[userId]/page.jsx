@@ -12,6 +12,7 @@ import { CardSkeleton } from '@/components/ui/LoadingSpinner'
 import Avatar from '@/components/ui/Avatar'
 import MovieCard from '@/components/feed/MovieCard'
 import { Film, Star, Camera, Upload, Trash2, Save, X, LogOut, ShieldCheck, Edit3, Grid, List } from 'lucide-react'
+import WatchCalendar from '@/components/profile/WatchCalendar'
 import { motion, AnimatePresence } from 'framer-motion'
 import UserReviewsModal from '@/components/profile/UserReviewsModal'
 import AdminApprovalPanel from '@/components/profile/AdminApprovalPanel'
@@ -336,6 +337,11 @@ export default function ProfilePage({ params }) {
               )}
             </div>
           </div>
+        )}
+
+        {/* Watch History Heatmap Calendar */}
+        {posts && posts.length > 0 && (
+          <WatchCalendar posts={posts} />
         )}
       </motion.div>
 
