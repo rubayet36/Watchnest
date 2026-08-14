@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 
 export const runtime = 'edge'
 
-const TMDB_BASE = process.env.TMDB_BASE_URL || process.env.NEXT_PUBLIC_TMDB_BASE_URL || 'https://api.themoviedb.org/3'
+const TMDB_BASE    = process.env.TMDB_BASE_URL || 'https://api.themoviedb.org/3'
 const TMDB_API_KEY = process.env.TMDB_API_KEY || process.env.NEXT_PUBLIC_TMDB_API_KEY
 
 export async function GET(request, { params }) {
