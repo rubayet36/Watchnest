@@ -1,11 +1,14 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { resumeUrl, progressPercent } from '@/lib/watch-features.mjs'
+import watchStyles from '@/components/watch/watch.module.css'
+import { useSyncExternalStore, useMemo } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronLeft, Play, Trash2, Clock, Film, Tv, Sparkles, AlertCircle } from 'lucide-react'
-import { getWatchHistory, removeFromWatchHistory, clearWatchHistory } from '@/lib/watch-history'
+import { removeFromWatchHistory, clearWatchHistory } from '@/lib/watch-history'
 import { getPosterUrl } from '@/lib/tmdb'
 
 function formatRelativeTime(dateString) {
@@ -28,39 +31,27 @@ function formatRelativeTime(dateString) {
   }
 }
 
+const subscribeHistory = fn => { window.addEventListener('watch-history-changed',fn); window.addEventListener('storage',fn); return () => {window.removeEventListener('watch-history-changed',fn);window.removeEventListener('storage',fn)} }
+const historySnapshot = () => {try{return localStorage.getItem('watch_history') || '[]'}catch{return '[]'}}
+const noSubscription = () => () => {}
+
 export default function WatchHistoryPage() {
   const router = useRouter()
-  const [history, setHistory] = useState([])
-  const [isLoaded, setIsLoaded] = useState(false)
-
-  useEffect(() => {
-    setHistory(getWatchHistory())
-    setIsLoaded(true)
-  }, [])
+  const raw = useSyncExternalStore(subscribeHistory,historySnapshot,()=> '[]')
+  const isLoaded = useSyncExternalStore(noSubscription,()=>true,()=>false)
+  const history = useMemo(()=>{try{const data=JSON.parse(raw);return Array.isArray(data)?data:[]}catch{return []}},[raw])
 
   const handleRemove = (id, mediaType) => {
     removeFromWatchHistory(id, mediaType)
-    setHistory(getWatchHistory())
   }
 
   const handleClearAll = () => {
     if (window.confirm('Are you sure you want to clear your entire watch history?')) {
       clearWatchHistory()
-      setHistory([])
     }
   }
 
-  const getResumeUrl = (item) => {
-    if (item.media_type === 'anime') {
-      const ep = item.progress?.epNum || '1'
-      const epId = item.progress?.episodeId
-      if (epId) {
-        return `/anime/watch/${epId}?ep=${ep}&anilistId=${item.id}`
-      }
-      return `/anime/${item.id}`
-    }
-    return `/media/${item.media_type}/${item.id}`
-  }
+  const getResumeUrl = resumeUrl
 
   const getBadgeColor = (type) => {
     switch (type) {
@@ -184,7 +175,7 @@ export default function WatchHistoryPage() {
                   {/* Poster Thumbnail */}
                   <div style={{ width: '60px', height: '84px', borderRadius: '12px', overflow: 'hidden', position: 'relative', flexShrink: 0, background: '#1c1c2e' }}>
                     {poster ? (
-                      <img src={poster} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <Image src={poster} alt="" width={60} height={84} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     ) : (
                       <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem' }}>🎬</div>
                     )}
@@ -209,6 +200,7 @@ export default function WatchHistoryPage() {
                       {item.title}
                     </h2>
 
+                    {progressPercent(item.progress)!==null && <div><div className={watchStyles.bar}><span style={{width:`${progressPercent(item.progress)}%`}}/></div><small>{Math.floor(item.progress.currentTime/60)} min watched {item.progress.completed?'· Completed':''}</small></div>}
                     {/* Progress details */}
                     <p style={{ margin: 0, fontSize: '0.76rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '4px' }}>
                       {item.media_type === 'tv' && item.progress?.season !== undefined && (

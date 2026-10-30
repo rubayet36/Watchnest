@@ -1,5 +1,6 @@
 'use client'
 
+import ContinueWatching from '@/components/watch/ContinueWatching'
 import { Suspense } from 'react'
 import { useState, useEffect, useRef } from 'react'
 import { useMovieSearch } from '@/hooks/useMovieSearch'
@@ -1165,6 +1166,8 @@ function SearchContent() {
       {/* Spacer top */}
       <div style={{ height: '0.75rem' }} />
 
+      <ContinueWatching />
+      <Link href="/search" style={{display:"block",padding:"12px 0",color:"#ff9b78"}}>Search all movies, series and anime →</Link>
       {/* Search Input at Top */}
       <div style={{ position: 'relative', marginBottom: '0.85rem' }}>
         <Search size={18} style={{ position: 'absolute', left: 16, top: '50%', transform: 'translateY(-50%)', color: '#5B5D64', pointerEvents: 'none' }} />

@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { CheckCircle2, ShieldCheck, UserCheck, UserX, Clock, ShieldAlert } from 'lucide-react'
 import Avatar from '@/components/ui/Avatar'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
+import Link from 'next/link'
 import { useAuth } from '@/context/AuthContext'
 
 function withTimeout(promise, message, timeoutMs = 8_000) {
@@ -48,8 +49,6 @@ export default function AdminApprovalPanel() {
     staleTime: 15_000,
   })
 
-  if (!isViewerAdmin) return null
-
   const approveUser = useMutation({
     mutationFn: async ({ userId, approved }) => {
       const res = await withTimeout(
@@ -69,6 +68,8 @@ export default function AdminApprovalPanel() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['admin-users'] }),
   })
 
+  if (!isViewerAdmin) return null
+
   const pending = users.filter(user => user.account_type !== 'admin' && !user.approved)
   const approved = users.filter(user => user.account_type !== 'admin' && user.approved)
   const visibleUsers = [...pending, ...approved]
@@ -82,6 +83,7 @@ export default function AdminApprovalPanel() {
       marginBottom: '1.5rem',
       boxShadow: '0 12px 32px rgba(0,0,0,0.4)',
     }}>
+      <Link href="/admin/streaming" style={{display:"inline-block",padding:"12px 0",color:"#ffae92"}}>Open streaming issue dashboard →</Link>
       {/* Admin Panel Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
         <div>

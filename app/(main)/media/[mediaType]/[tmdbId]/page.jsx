@@ -1,6 +1,13 @@
 'use client'
 
 import { use, useMemo, useState, useEffect } from 'react'
+import PlaybackFeedback from '@/components/watch/PlaybackFeedback'
+import EpisodeDrawer from '@/components/watch/EpisodeDrawer'
+import FollowEpisodes from '@/components/watch/FollowEpisodes'
+import watchStyles from '@/components/watch/watch.module.css'
+import { releaseStatus } from '@/lib/watch-features.mjs'
+import EmbedPlayer from '@/components/media/EmbedPlayer'
+import { STREAM_SOURCES, buildMediaStreamUrl, availableSeasons, restoreEpisodeProgress } from '@/lib/media-stream.mjs'
 import { useQuery } from '@tanstack/react-query'
 import { getMovieDetails, getPosterUrl, getBackdropUrl, getProviderLogoUrl, getRecommendations } from '@/lib/tmdb'
 import Image from 'next/image'
@@ -13,11 +20,11 @@ import Avatar from '@/components/ui/Avatar'
 import { getCategoryById, timeAgo, REACTIONS } from '@/lib/utils'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useAuth } from '@/context/AuthContext'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useDirectWatchlist } from '@/hooks/useReactions'
 import { authFetch } from '@/lib/auth-fetch'
 import dynamic from 'next/dynamic'
-import { addToWatchHistory } from '@/lib/watch-history'
+import { addToWatchHistory, getWatchHistory } from '@/lib/watch-history'
 
 const AddMovieModal = dynamic(() => import('@/components/movie/AddMovieModal'), { ssr: false })
 const ShareModal = dynamic(() => import('@/components/feed/ShareModal'), { ssr: false })
@@ -29,26 +36,6 @@ async function fetchMoviePosts(tmdbId, mediaType) {
 }
 
 const WATCH_REGION = process.env.NEXT_PUBLIC_TMDB_WATCH_REGION || 'US'
-const STREAM_SOURCES = [
-  {
-    id: 'videasy',
-    label: 'Videasy',
-    movieUrl: (id) => `https://player.videasy.net/movie/${id}`,
-    tvUrl: (id, season, episode) => `https://player.videasy.net/tv/${id}/${season}/${episode}`,
-  },
-  {
-    id: 'vidsrc',
-    label: 'VidSrc',
-    movieUrl: (id) => `https://vidsrc.to/embed/movie/${id}`,
-    tvUrl: (id, season, episode) => `https://vidsrc.to/embed/tv/${id}/${season}/${episode}`,
-  },
-  {
-    id: '2embed',
-    label: '2Embed',
-    movieUrl: (id) => `https://www.2embed.online/embed/movie/${id}`,
-    tvUrl: (id, season, episode) => `https://www.2embed.online/embed/tv/${id}/${season}/${episode}`,
-  },
-]
 
 function Pill({ children, onClick }) {
   return (
@@ -148,21 +135,25 @@ function ReviewMeta({ post }) {
 
 function StreamPlayer({ tmdbId, mediaType, seasons = [], movie, onClose }) {
   const isTV = mediaType === 'tv'
-  const seasonOptions = useMemo(() => {
-    const available = (seasons || [])
-      .filter((season) => season.season_number > 0 && season.episode_count > 0)
-      .sort((a, b) => a.season_number - b.season_number)
+  const searchParams = useSearchParams()
+  const seasonOptions = useMemo(() => availableSeasons(seasons), [seasons])
 
-    return available.length
-      ? available
-      : Array.from({ length: 10 }, (_, i) => ({ season_number: i + 1, episode_count: 30 }))
-  }, [seasons])
-
-  const [sourceId, setSourceId] = useState(STREAM_SOURCES[0].id)
-  const [season, setSeason] = useState(seasonOptions[0]?.season_number || 1)
-  const [episode, setEpisode] = useState(1)
-  const [iframeLoaded, setIframeLoaded] = useState(false)
-  const [isDismissed, setIsDismissed] = useState(false)
+  const [sourceId, setSourceId] = useState(() => {
+    const saved = getWatchHistory().find(h=>String(h.id)===String(tmdbId)&&h.media_type===mediaType)?.progress?.source
+    return STREAM_SOURCES.some(s=>s.id===saved)?saved:STREAM_SOURCES[0].id
+  })
+  // This player mounts after the user opens it; restore before saving progress.
+  const [initialProgress] = useState(() => {
+    try {
+      if (searchParams.get('season') && searchParams.get('episode')) return restoreEpisodeProgress(JSON.stringify({season:Number(searchParams.get('season')),episode:Number(searchParams.get('episode'))}),seasonOptions)
+      return restoreEpisodeProgress(typeof window === 'undefined' ? null : localStorage.getItem(`watch_progress_${tmdbId}`), seasonOptions)
+    } catch { return restoreEpisodeProgress(null, seasonOptions) }
+  })
+  const [season, setSeason] = useState(initialProgress.season)
+  const [episode, setEpisode] = useState(initialProgress.episode)
+  const [loadedUrl, setLoadedUrl] = useState('')
+  const [dismissedEpisode, setDismissedEpisode] = useState('')
+  const isDismissed = dismissedEpisode === `${season}:${episode}`
 
   const { data: seasonDetails } = useQuery({
     queryKey: ['tvSeason', tmdbId, season],
@@ -176,43 +167,25 @@ function StreamPlayer({ tmdbId, mediaType, seasons = [], movie, onClose }) {
 
   const selectedSource = STREAM_SOURCES.find((source) => source.id === sourceId) || STREAM_SOURCES[0]
   const currentSeason = seasonOptions.find((item) => item.season_number === season) || seasonOptions[0]
-  const episodeCount = currentSeason?.episode_count || 30
-  const safeEpisode = Math.min(episode, episodeCount)
-  const streamUrl = isTV
-    ? selectedSource.tvUrl(tmdbId, season, safeEpisode)
-    : selectedSource.movieUrl(tmdbId)
-
-  // Reset dismissed state on episode/season change
-  useEffect(() => {
-    setIsDismissed(false)
-  }, [season, episode])
-
-  // Load progress from localStorage on mount
-  useEffect(() => {
-    if (isTV && tmdbId && seasonOptions.length > 0) {
-      const saved = localStorage.getItem(`watch_progress_${tmdbId}`)
-      if (saved) {
-        try {
-          const { season: savedSeason, episode: savedEpisode } = JSON.parse(saved)
-          const validSeason = seasonOptions.find(s => s.season_number === savedSeason)
-          if (validSeason) {
-            setSeason(savedSeason)
-            const maxEpisodes = validSeason.episode_count || 30
-            setEpisode(Math.min(savedEpisode || 1, maxEpisodes))
-          }
-        } catch (e) {
-          console.error('Error loading progress:', e)
-        }
-      }
+  const episodeCount = currentSeason?.episode_count || 0
+  const safeEpisode = Math.max(1, Math.min(episode, episodeCount))
+  const streamUrl = useMemo(() => {
+    const base = buildMediaStreamUrl({ sourceId, mediaType, tmdbId, season, episode: isTV && !episodeCount ? null : safeEpisode })
+    if (!base || sourceId !== 'vidsrc') return base
+    const previous = getWatchHistory().find(h => String(h.id) === String(tmdbId) && h.media_type === mediaType)?.progress
+    if (previous?.currentTime > 0 && !previous.completed && (!isTV || (previous.season === season && previous.episode === safeEpisode))) {
+      const url = new URL(base); url.searchParams.set('startAt',String(previous.currentTime)); return url.href
     }
-  }, [tmdbId, isTV, seasonOptions])
+    return base
+  }, [sourceId,mediaType,tmdbId,season,isTV,episodeCount,safeEpisode])
+  const iframeLoaded = !!streamUrl && loadedUrl === streamUrl
 
   // Save progress to localStorage on change
   useEffect(() => {
-    if (isTV && tmdbId) {
-      localStorage.setItem(`watch_progress_${tmdbId}`, JSON.stringify({ season, episode }))
+    if (isTV && tmdbId && episodeCount > 0) {
+      try { localStorage.setItem(`watch_progress_${tmdbId}`, JSON.stringify({ season, episode })) } catch { /* Storage may be disabled. */ }
     }
-  }, [tmdbId, isTV, season, episode])
+  }, [tmdbId, isTV, season, episode, episodeCount])
 
   // Save watch progress to history list
   useEffect(() => {
@@ -246,7 +219,7 @@ function StreamPlayer({ tmdbId, mediaType, seasons = [], movie, onClose }) {
 
   const handleNextEpisode = () => {
     if (nextEpisode) {
-      setIframeLoaded(false)
+      setLoadedUrl('')
       setSeason(nextEpisode.season)
       setEpisode(nextEpisode.episode)
     }
@@ -311,24 +284,7 @@ function StreamPlayer({ tmdbId, mediaType, seasons = [], movie, onClose }) {
           boxShadow: '0 20px 50px rgba(0,0,0,0.8)',
         }}
       >
-        {!iframeLoaded && (
-          <div className="stream-loading" style={{ position: 'absolute', inset: 0, zIndex: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#0D0E12' }}>
-            <LoadingSpinner size="md" />
-            <p style={{ marginTop: 12, color: '#9A9CA3', fontSize: '0.8rem', fontFamily: "'JetBrains Mono', monospace" }}>Loading stream...</p>
-          </div>
-        )}
-
-        <iframe
-          key={streamUrl}
-          src={streamUrl}
-          title={`${selectedSource.label} player`}
-          width="100%"
-          height="100%"
-          className="stream-frame"
-          allow="autoplay; fullscreen *; encrypted-media; picture-in-picture"
-          referrerPolicy="origin"
-          onLoad={() => setIframeLoaded(true)}
-        />
+        <EmbedPlayer identity={{tmdbId,mediaType,season,episode:safeEpisode}} onProgress={progress => addToWatchHistory({id:tmdbId,title:movie?.title||movie?.name,poster_path:movie?.poster_path,media_type:mediaType,progress:{...(isTV?{season,episode:safeEpisode}:{}),...progress,source:sourceId}})} key={streamUrl || 'unavailable'} url={streamUrl} label={selectedSource.label} onLoaded={() => setLoadedUrl(streamUrl)} />
 
         {/* Floating Next Episode Button Overlay */}
         {isTV && nextEpisode && iframeLoaded && !isDismissed && (
@@ -347,7 +303,7 @@ function StreamPlayer({ tmdbId, mediaType, seasons = [], movie, onClose }) {
               <span className="btn-text">Next Episode (S{nextEpisode.season}:E{nextEpisode.episode})</span>
             </button>
             <button
-              onClick={() => setIsDismissed(true)}
+              onClick={() => setDismissedEpisode(`${season}:${episode}`)}
               className="stream-dismiss-btn"
               title="Dismiss"
             >
@@ -372,7 +328,7 @@ function StreamPlayer({ tmdbId, mediaType, seasons = [], movie, onClose }) {
                 className={`stream-source-button ${isActive ? 'is-active' : ''}`}
                 onClick={() => {
                   if (source.id === sourceId) return
-                  setIframeLoaded(false)
+                  setLoadedUrl('')
                   setSourceId(source.id)
                 }}
                 style={{
@@ -395,6 +351,10 @@ function StreamPlayer({ tmdbId, mediaType, seasons = [], movie, onClose }) {
         </div>
       </div>
 
+      <PlaybackFeedback identity={{media_type:mediaType,media_id:tmdbId,title:movie?.title||movie?.name||'Title',season:isTV?season:0,episode:isTV?safeEpisode:0}} provider={sourceId} onSwitch={() => { setLoadedUrl(''); setSourceId(STREAM_SOURCES[(STREAM_SOURCES.findIndex(s=>s.id===sourceId)+1)%STREAM_SOURCES.length].id) }} />
+      <p className={watchStyles.muted}>{sourceId==='vidsrc'?'Playback time is saved when the player reports progress.':'This source remembers your episode; exact playback time is not available.'}</p>
+      {isTV && <EpisodeDrawer><label>Season <select className={watchStyles.button} value={season} onChange={e=>{setSeason(Number(e.target.value));setEpisode(1)}}>{seasonOptions.map(s=><option key={s.season_number} value={s.season_number}>Season {s.season_number}</option>)}</select></label><div className={watchStyles.episodeList}>{Array.from({length:episodeCount},(_,i)=>i+1).map(ep=><button className={watchStyles.button} data-episode key={ep} aria-pressed={ep===safeEpisode} onClick={()=>setEpisode(ep)}>E{ep}</button>)}</div></EpisodeDrawer>}
+
       {isTV && (
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="stream-episode-row">
           <label>
@@ -403,7 +363,7 @@ function StreamPlayer({ tmdbId, mediaType, seasons = [], movie, onClose }) {
               <select
                 value={season}
                 onChange={(e) => {
-                  setIframeLoaded(false)
+                  setLoadedUrl('')
                   setSeason(Number(e.target.value))
                   setEpisode(1)
                 }}
@@ -421,7 +381,7 @@ function StreamPlayer({ tmdbId, mediaType, seasons = [], movie, onClose }) {
               <select
                 value={safeEpisode}
                 onChange={(e) => {
-                  setIframeLoaded(false)
+                  setLoadedUrl('')
                   setEpisode(Number(e.target.value))
                 }}
               >
@@ -435,6 +395,7 @@ function StreamPlayer({ tmdbId, mediaType, seasons = [], movie, onClose }) {
         </motion.div>
       )}
 
+      {isTV && <FollowEpisodes mediaType="tv" mediaId={tmdbId} />}
       {isTV && seasonDetails?.episodes && (
         <div style={{ marginTop: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           <h3 style={{ fontSize: '0.8rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>
@@ -450,7 +411,7 @@ function StreamPlayer({ tmdbId, mediaType, seasons = [], movie, onClose }) {
                   key={ep.id}
                   onClick={() => {
                     if (isActive) return
-                    setIframeLoaded(false)
+                    setLoadedUrl('')
                     setEpisode(ep.episode_number)
                   }}
                   style={{
@@ -507,7 +468,8 @@ export default function MediaDetailPage({ params }) {
   const { user } = useAuth()
   const router = useRouter()
   const [expandedOverview, setExpandedOverview] = useState(false)
-  const [isStreaming, setIsStreaming] = useState(false)
+  const searchParams = useSearchParams()
+  const [isStreaming, setIsStreaming] = useState(searchParams.get('watch') === '1')
   const [activeTab, setActiveTab] = useState('overview')
   const [selectedVideoKey, setSelectedVideoKey] = useState(null)
   const [showAddModal, setShowAddModal] = useState(false)
@@ -743,6 +705,8 @@ export default function MediaDetailPage({ params }) {
       </div>
 
       <div style={{ position: 'relative', zIndex: 10, maxWidth: isStreaming ? 1200 : 640, margin: '0 auto', padding: '1.25rem', transition: 'max-width 0.3s ease-in-out' }}>
+        <p className={watchStyles.status}>{releaseStatus(movie.release_date || movie.first_air_date)}</p>
+        {!isStreaming && mediaType === 'tv' && <FollowEpisodes mediaType="tv" mediaId={tmdbId} />}
         
         {/* Top Floating Nav */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem', paddingTop: 'env(safe-area-inset-top)' }}>
@@ -775,7 +739,7 @@ export default function MediaDetailPage({ params }) {
               exit={{ opacity: 0, scale: 0.97 }}
               style={{ marginBottom: '1.5rem' }}
             >
-              <StreamPlayer tmdbId={tmdbId} mediaType={mediaType} seasons={movie.seasons} movie={movie} onClose={() => setIsStreaming(false)} />
+              <StreamPlayer key={`${mediaType}:${tmdbId}`} tmdbId={tmdbId} mediaType={mediaType} seasons={movie.seasons} movie={movie} onClose={() => setIsStreaming(false)} />
             </motion.div>
           ) : (
             <motion.div

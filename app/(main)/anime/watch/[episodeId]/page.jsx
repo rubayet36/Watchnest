@@ -1,6 +1,10 @@
 'use client'
 
 import { use, useState, useEffect, useMemo } from 'react'
+import EmbedPlayer from '@/components/media/EmbedPlayer'
+import PlaybackFeedback from '@/components/watch/PlaybackFeedback'
+import EpisodeDrawer from '@/components/watch/EpisodeDrawer'
+import watchStyles from '@/components/watch/watch.module.css'
 import { animeEpisodeInfo } from '@/lib/anime-stream.mjs'
 import { useQuery } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -79,10 +83,10 @@ export default function AnimeWatchPage({ params }) {
         title: episodeInfo.title,
         poster_path: episodeInfo.image,
         media_type: 'anime',
-        progress: { epNum, episodeId }
+        progress: { epNum, episodeId, language }
       })
     }
-  }, [anilistId, episodeInfo, epNum, episodeId])
+  }, [anilistId, episodeInfo, epNum, episodeId, language])
 
   // Save server preference
   const handleServerChange = (server) => {
@@ -135,6 +139,7 @@ export default function AnimeWatchPage({ params }) {
         <AlertTriangle size={48} color="#ef4444" style={{ marginBottom: '1rem' }} />
         <h2 style={{ color: '#e2e8f0' }}>Stream Unresolvable</h2>
         <p style={{ color: '#64748b', marginTop: '0.5rem' }}>{watchError?.message || watchData?.message || 'No streaming options are available for this episode.'}</p>
+        <PlaybackFeedback identity={{media_type:'anime',media_id:anilistId,title:episodeInfo?.title||'Anime',episode:Number(epNum)}} provider="lookup" />
         <button onClick={() => refetch()} className="btn-primary" style={{ marginTop: '1rem' }}>Retry</button>
         <button onClick={() => router.back()} className="btn-primary" style={{ marginTop: '1.5rem' }}>Go Back</button>
       </div>
@@ -204,26 +209,7 @@ export default function AnimeWatchPage({ params }) {
 
             {/* Video Player Shell */}
             <div className="stream-frame-shell" style={{ position: 'relative', width: '100%', aspectRatio: '16/9', borderBottomLeftRadius: 16, borderBottomRightRadius: 16, borderTopLeftRadius: 0, borderTopRightRadius: 0, overflow: 'hidden', background: '#0D0E12', boxShadow: '0 24px 60px rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.08)', marginBottom: '1.25rem' }}>
-              {!iframeLoaded && (
-                <div style={{ position: 'absolute', inset: 0, zIndex: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '0.75rem', background: '#0D0E12' }}>
-                  <LoadingSpinner size="md" />
-                  <p style={{ margin: 0, color: '#9A9CA3', fontSize: '0.8rem', fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>Connecting Server...</p>
-                </div>
-              )}
-
-              <iframe
-                key={activeServer.url}
-                src={activeServer.url}
-                title={`${activeServer.name} player`}
-                width="100%"
-                height="100%"
-                style={{ border: 'none', position: 'absolute', inset: 0 }}
-                sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
-                allowFullScreen
-                allow="autoplay; fullscreen *; encrypted-media; picture-in-picture"
-                referrerPolicy="origin"
-                onLoad={() => setLoadedUrl(activeServer.url)}
-              />
+              <EmbedPlayer key={activeServer.url} url={activeServer.url} label={activeServer.name} onLoaded={()=>setLoadedUrl(activeServer.url)} />
 
               {/* Ad interceptor notice overlay */}
               <AnimatePresence>
@@ -245,6 +231,8 @@ export default function AnimeWatchPage({ params }) {
               </AnimatePresence>
             </div>
 
+            <PlaybackFeedback identity={{media_type:'anime',media_id:anilistId,title:episodeInfo?.title||'Anime',episode:Number(epNum)}} provider={activeServer.name} onSwitch={watchData.servers.length>1?()=>handleServerChange(watchData.servers[(watchData.servers.findIndex(s=>s.url===activeServer.url)+1)%watchData.servers.length]):undefined} />
+            <EpisodeDrawer><div className={watchStyles.episodeList}>{[...sortedEpisodes].reverse().map(ep=><Link className={watchStyles.button} key={ep.id} href={`/anime/watch/${ep.id}?${new URLSearchParams({anilistId,ep:String(ep.episodeNumber),language,malId:malId||''})}`}>E{ep.episodeNumber}</Link>)}</div></EpisodeDrawer>
             {/* Server switcher row */}
             <div style={{ marginBottom: '1.5rem' }}>
               <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.68rem', fontWeight: 700, letterSpacing: '0.08em', color: '#9A9CA3', marginBottom: 8, textTransform: 'uppercase' }}>

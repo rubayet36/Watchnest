@@ -238,7 +238,7 @@ export default function Navbar({ onAddClick }) {
   const navItems = [
     { href: '/feed',      icon: Home,     label: 'Home'      },
     { href: '/watchlist', icon: Bookmark, label: 'Watchlist' },
-    { href: '/',          icon: Search,   label: 'Search'    },
+    { href: '/search',    icon: Search,   label: 'Search'    },
     { href: '/anime',     icon: Tv,       label: 'Anime'     },
     { href: profileHref,  icon: User,     label: 'Profile'   },
   ]
@@ -310,6 +310,8 @@ export default function Navbar({ onAddClick }) {
         </Link>
 
         {/* User chip */}
+        <Link className="wn-nav-link" href="/episode-alerts">Episode alerts</Link>
+        {profile?.account_type === "admin" && <Link className="wn-nav-link" href="/admin/streaming">Streaming issues</Link>}
         {profile && (
           <div className="wn-user-chip">
             <Avatar user={profile} size={34} />

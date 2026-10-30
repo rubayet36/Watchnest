@@ -1,6 +1,8 @@
 'use client'
 
 import { use, useState, useMemo } from 'react'
+import FollowEpisodes from '@/components/watch/FollowEpisodes'
+import { releaseStatus } from '@/lib/watch-features.mjs'
 import { animeEpisodeInfo } from '@/lib/anime-stream.mjs'
 import { useQuery } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -296,6 +298,8 @@ export default function AnimeDetailPage({ params }) {
           )}
         </section>
 
+        <FollowEpisodes mediaType="anime" mediaId={animeData.id} />
+        <p>{releaseStatus(null,animeData.status)}</p>
         {/* Episode List Section */}
         <div style={{ marginBottom: '2rem' }}>
           <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#fff', margin: '0 0 1rem', display: 'flex', alignItems: 'center', gap: 8 }}><Tv size={16} color="#f47521" /> Episodes</h3>

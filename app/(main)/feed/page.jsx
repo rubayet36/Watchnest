@@ -1,5 +1,7 @@
 'use client'
 
+import ContinueWatching from '@/components/watch/ContinueWatching'
+
 import Link from 'next/link'
 import { useMemo, useSyncExternalStore } from 'react'
 import { Database, Film, Plus, Sparkles, Users, Activity } from 'lucide-react'
@@ -103,6 +105,7 @@ export default function HomePage() {
 
   return (
     <main className="feed-page page-shell mobile-safe-bottom" style={{ maxWidth: 680, margin: '0 auto', padding: '1.25rem 1rem', color: '#F2EFE9' }}>
+      <ContinueWatching />
       
       {/* Feed Hero Banner */}
       <header style={{

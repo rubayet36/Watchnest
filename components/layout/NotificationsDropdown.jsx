@@ -13,6 +13,7 @@ import { useAuth } from '@/context/AuthContext'
 function getPlainMessage(n) {
   const name = n.actor?.name || 'Someone'
   switch(n.type) {
+    case 'episode_release': return n.title
     case 'reaction': return `${name} reacted to your post ${n.post?.title || ''}`.trim()
     case 'share': return `${name} shared ${n.post?.title || 'a title'} with you`
     case 'follow_request': return `${name} sent you a partner request`
@@ -25,6 +26,7 @@ function getPlainMessage(n) {
 
 function getNotificationLink(n) {
   switch(n.type) {
+    case 'episode_release': return n.link
     case 'reaction':
     case 'comment':
     case 'reply': return `/media/${n.post?.media_type || 'movie'}/${n.post?.tmdb_id}`
@@ -45,7 +47,15 @@ export default function NotificationsDropdown() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['notifications', user?.id],
-    queryFn: () => authFetch('/api/notifications').then(r => r.json()),
+    queryFn: async () => {
+      const [normal, episodes] = await Promise.allSettled([
+        authFetch('/api/notifications').then(async r=>{if(!r.ok)throw new Error('Notifications unavailable');return r.json()}),
+        authFetch('/api/episode-alerts').then(async r=>{if(!r.ok)throw new Error('Episode alerts unavailable');return r.json()}),
+      ])
+      const notifications = normal.status==='fulfilled' ? normal.value.notifications || [] : []
+      const alerts = episodes.status==='fulfilled' ? (episodes.value.alerts || []).map(a=>({...a,type:'episode_release'})) : []
+      return { notifications:[...notifications,...alerts].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)) }
+    },
     enabled: Boolean(user) && isVisible && (shouldFetch || isOpen),
     // Only poll while the dropdown is open; no background polling
     refetchInterval: isOpen ? 60_000 : false,
@@ -55,10 +65,15 @@ export default function NotificationsDropdown() {
   })
 
   const markRead = useMutation({
-    mutationFn: (id) => authFetch('/api/notifications', {
-      method: 'PATCH',
-      body: JSON.stringify(id ? { notification_id: id } : { mark_all_read: true })
-    }),
+    mutationFn: async (id) => {
+      const item = data?.notifications?.find(n=>n.id===id)
+      const operations = !id ? [
+        authFetch('/api/notifications',{method:'PATCH',body:JSON.stringify({mark_all_read:true})}),
+        authFetch('/api/episode-alerts',{method:'PATCH',body:JSON.stringify({})}),
+      ] : [authFetch(item?.type==='episode_release'?'/api/episode-alerts':'/api/notifications',{method:'PATCH',body:JSON.stringify(item?.type==='episode_release'?{id}:{notification_id:id})})]
+      const results=await Promise.all(operations)
+      if(id && !results[0].ok) throw new Error('Could not mark notification read')
+    },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
   })
 
@@ -123,6 +138,7 @@ export default function NotificationsDropdown() {
   const getMessage = (n) => {
     const name = n.actor?.name || 'Someone'
     switch(n.type) {
+      case 'episode_release': return <>{n.title}</>
       case 'reaction': return <>{name} reacted to your post <b>{n.post?.title}</b></>
       case 'share': return <>{name} shared <b>{n.post?.title}</b> with you</>
       case 'follow_request': return <>{name} sent you a partner request</>
@@ -152,6 +168,7 @@ export default function NotificationsDropdown() {
         )}
       </button>
 
+      <Link href="/episode-alerts" aria-label="Manage episode alerts" style={{fontSize:11,color:"#a6a8b0",display:"block"}}>Episodes</Link>
       <AnimatePresence>
         {isOpen && (
           <motion.div
