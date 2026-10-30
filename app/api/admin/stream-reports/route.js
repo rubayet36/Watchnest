@@ -8,9 +8,9 @@ export async function GET(request) {
     if (!['open','resolved','all'].includes(status)) return NextResponse.json({ error: 'Invalid status' }, { status: 400 })
     let query = auth.supabase.from('stream_reports').select('*').gte('created_at',new Date(Date.now()-30*86400000).toISOString()).order('created_at',{ascending:false}).limit(500)
     if (status !== 'all') query = query.eq('status',status)
-    const { data,error } = await query; if(error) return dbError()
+    const { data,error } = await query; if(error) return dbError(error)
     return NextResponse.json({ reports:data, ...summarizeReports(data), limit:500 })
-  } catch { return dbError() }
+  } catch (error) { return dbError(error) }
 }
 export async function PATCH(request) {
   try {
@@ -18,7 +18,7 @@ export async function PATCH(request) {
     const { id,status } = await request.json()
     if (!/^[a-f0-9-]{36}$/i.test(id || '') || !['open','resolved'].includes(status)) return NextResponse.json({ error:'Invalid update' },{ status:400 })
     const { error } = await auth.supabase.from('stream_reports').update({status}).eq('id',id)
-    if(error) return dbError()
+    if(error) return dbError(error)
     return NextResponse.json({ success:true })
-  } catch { return dbError() }
+  } catch (error) { return dbError(error) }
 }

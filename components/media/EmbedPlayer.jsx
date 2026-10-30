@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { parsePlayerProgress } from '@/lib/watch-features.mjs'
+import { iframeSandbox } from '@/lib/embed-policy.mjs'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 
 // Key this component by URL so load/error/timer state belongs to one embed only.
@@ -34,11 +35,10 @@ export default function EmbedPlayer({ url, label, onLoaded, identity, onProgress
       src={url}
       title={`${label} player`}
       width="100%" height="100%" className="stream-frame"
-      allowFullScreen
       allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
-      sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
+      sandbox={iframeSandbox(url)}
       referrerPolicy="origin"
-      onLoad={() => { setState('loaded'); onLoaded() }}
+      onLoad={() => { setState('loaded'); onLoaded?.() }}
       onError={() => setState('error')}
     />
     <button type="button" onClick={() => { const element = frame.current; if (element?.requestFullscreen) element.requestFullscreen().catch(() => {}); }} style={{position:"absolute",bottom:8,right:8,zIndex:3,minHeight:44,padding:"8px 12px",background:"#15171cee",color:"white",borderRadius:8}}>Fullscreen</button>

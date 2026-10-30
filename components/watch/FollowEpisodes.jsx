@@ -6,7 +6,7 @@ import { authFetch } from '@/lib/auth-fetch'
 import styles from './watch.module.css'
 export default function FollowEpisodes({mediaType,mediaId}){
  const {user}=useAuth(),client=useQueryClient(),[busy,setBusy]=useState(false),[message,setMessage]=useState('')
- const {data,error}=useQuery({queryKey:['episode-subscriptions',user?.id],enabled:!!user,queryFn:async()=>{const r=await authFetch('/api/episode-subscriptions');const d=await r.json();if(!r.ok)throw new Error(d.error);return d.subscriptions}})
+ const {data,error}=useQuery({queryKey:['episode-subscriptions',user?.id],enabled:!!user,retry:false,refetchOnWindowFocus:false,queryFn:async()=>{const r=await authFetch('/api/episode-subscriptions');const d=await r.json();if(!r.ok)throw new Error(d.error);return d.subscriptions}})
  const followed=data?.find(s=>s.media_type===mediaType&&String(s.media_id)===String(mediaId))
  async function toggle(){if(!user){setMessage('Sign in to follow episodes.');return}setBusy(true);setMessage('');try{
  const r=await authFetch('/api/episode-subscriptions',{method:followed?'DELETE':'POST',body:JSON.stringify(followed?{id:followed.id}:{media_type:mediaType,media_id:mediaId})});const d=await r.json();if(!r.ok)throw new Error(d.error)

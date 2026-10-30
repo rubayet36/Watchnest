@@ -53,10 +53,13 @@ export default function AnimeWatchPage({ params }) {
     queryFn: async () => {
       const res = await fetch(`/api/anime/stream?${new URLSearchParams({ anilistId, malId: malId || '', ep: epNum, language })}`)
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'Failed to fetch stream servers')
+      if (!res.ok) throw new Error(`${json.error || 'Failed to fetch stream servers'}${json.code ? ` (${json.code}${json.upstreamStatus ? `: ${json.upstreamStatus}` : ''})` : ''}`)
       return json
     },
-    enabled: !!episodeId,
+    enabled: !!episodeId && !!anilistId,
+    retry: false,
+    refetchOnWindowFocus: false,
+    staleTime: 60_000,
   })
 
   // ── 2. Fetch AniSkip Timestamps ─────────────────────────────────

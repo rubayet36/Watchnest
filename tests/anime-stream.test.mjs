@@ -43,6 +43,21 @@ test('reports timeout separately', async () => {
   const result = await resolveAnimeStream(params(), async () => { throw new DOMException('timeout', 'TimeoutError') })
   assert.equal(result.status, 504)
 })
+test('provider diagnostics distinguish HTTP, invalid data and connection failures', async () => {
+  for (const status of [403, 429, 500]) {
+    const result = await resolveAnimeStream(params(), async () => new Response('', { status }))
+    assert.equal(result.body.upstreamStatus, status)
+    assert.equal(result.body.code, status === 429 ? 'PROVIDER_RATE_LIMITED' : 'PROVIDER_HTTP_ERROR')
+  }
+  const html = await resolveAnimeStream(params(), async () => new Response('<html>private upstream body</html>'))
+  assert.equal(html.body.code, 'PROVIDER_INVALID_JSON')
+  assert.doesNotMatch(JSON.stringify(html), /private upstream/)
+  const invalid = await resolveAnimeStream(params(), async () => Response.json(null))
+  assert.equal(invalid.body.code, 'PROVIDER_INVALID_RESPONSE')
+  const network = await resolveAnimeStream(params(), async () => { throw new TypeError('secret network details') })
+  assert.equal(network.body.code, 'PROVIDER_CONNECTION_FAILED')
+  assert.doesNotMatch(JSON.stringify(network), /secret/)
+})
 test('episode guide excludes future episodes and uses stable AniList links', () => {
   const media = { id: 21, status: 'RELEASING', episodes: 100, nextAiringEpisode: { episode: 5 } }
   assert.equal(animeEpisodeInfo(media).episodes.length, 4)

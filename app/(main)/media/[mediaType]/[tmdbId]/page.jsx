@@ -244,10 +244,6 @@ function StreamPlayer({ tmdbId, mediaType, seasons = [], movie, onClose }) {
           </span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0, marginLeft: 10 }}>
-          <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '0.68rem', fontWeight: 700, color: '#3FDDA8', display: 'flex', alignItems: 'center', gap: 5 }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#3FDDA8', boxShadow: '0 0 6px #3FDDA8' }} />
-            SANDBOXED
-          </div>
           {onClose && (
             <button
               type="button"
