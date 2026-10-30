@@ -1,3 +1,4 @@
+import { resolveAnimeStream } from '@/lib/anime-stream.mjs'
 import { NextResponse } from 'next/server'
 
 export const runtime = 'edge'
@@ -97,116 +98,8 @@ export async function GET(request, { params }) {
     }
 
     if (endpoint === 'watch') {
-      const episodeId = url.searchParams.get('episodeId')
-      const anilistId = url.searchParams.get('anilistId')
-      const malId = url.searchParams.get('malId')
-      const episodeNum = url.searchParams.get('ep') || '1'
-
-      if (!episodeId) return NextResponse.json({ error: 'Episode ID is required' }, { status: 400 })
-
-      const realPath = episodeId.includes('~') ? 'watch/' + episodeId.replace('~', '/') : episodeId
-      const res = await fetch(`${GOGO_BASE}/${realPath}`, { headers })
-      if (!res.ok) return NextResponse.json({ error: 'Episode not found' }, { status: 404 })
-      const html = await res.text()
-
-      // Extract default player iframe (if any)
-      let primaryIframe = html.match(/<iframe src="([^"]+)"/)?.[1]
-      if (primaryIframe && primaryIframe.startsWith('//')) {
-        primaryIframe = `https:${primaryIframe}`
-      }
-
-      const servers = []
-
-      // 1. Selena / PRI
-      if (anilistId) {
-        servers.push({
-          name: 'Selena / PRI',
-          url: `https://enma.lol/embed/anime/${anilistId}/${episodeNum}`,
-        })
-      }
-
-      // 2. Cipher
-      if (anilistId) {
-        servers.push({
-          name: 'Cipher',
-          url: `https://hianime.ms/embed/anime/${anilistId}/${episodeNum}`,
-        })
-      }
-
-      // 3. Oracle
-      if (anilistId) {
-        servers.push({
-          name: 'Oracle',
-          url: `https://miruro.tv/watch/anime/${anilistId}/${episodeNum}`,
-        })
-      }
-
-      // 4. Aegis HD-1
-      if (malId) {
-        servers.push({
-          name: 'Aegis HD-1',
-          url: `https://vidsrc.dev/embed/anime/${malId}/${episodeNum}`,
-        })
-      }
-
-      // 5. Aegis HD-2
-      if (anilistId) {
-        servers.push({
-          name: 'Aegis HD-2',
-          url: `https://aniplay.to/embed/anime/${anilistId}/${episodeNum}`,
-        })
-      }
-
-      // 6. Nova
-      if (anilistId) {
-        servers.push({
-          name: 'Nova',
-          url: `https://zoroxtv.com/embed/anime/${anilistId}/${episodeNum}`,
-        })
-      }
-
-      // 7. Onyx
-      if (anilistId) {
-        servers.push({
-          name: 'Onyx',
-          url: `https://dropfile.cc/embed/anime/${anilistId}/${episodeNum}`,
-        })
-      }
-
-      // 8. Gogoanime Native
-      if (primaryIframe) {
-        servers.push({
-          name: 'Gogoanime Native',
-          url: primaryIframe,
-        })
-      }
-
-      // Parse other servers from the buttons
-      const serverRegex = /<button[^>]*class="[^"]*nv-server-btn[^"]*"[^>]*data-video="([^"]+)"[^>]*>([\s\S]*?)<\/button>/g
-      let serverMatch
-      while ((serverMatch = serverRegex.exec(html)) !== null) {
-        let serverUrl = serverMatch[1]
-        let serverText = serverMatch[2]
-
-        // Clean server name
-        let serverName = serverText.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
-
-        if (serverUrl) {
-          if (serverUrl.startsWith('//')) {
-            serverUrl = `https:${serverUrl}`
-          }
-
-          servers.push({
-            name: serverName || 'Alternative Stream',
-            url: serverUrl,
-          })
-        }
-      }
-
-      return NextResponse.json({
-        episodeId,
-        servers,
-      })
+      const { status, body } = await resolveAnimeStream(url.searchParams)
+      return NextResponse.json(body, { status })
     }
 
     return NextResponse.json({ error: 'Endpoint not found' }, { status: 404 })

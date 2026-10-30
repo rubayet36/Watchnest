@@ -1,6 +1,7 @@
 'use client'
 
-import { use, useState, useEffect, useMemo } from 'react'
+import { use, useState, useMemo } from 'react'
+import { animeEpisodeInfo } from '@/lib/anime-stream.mjs'
 import { useQuery } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronLeft, Play, Tv, Users, Heart, Info, Calendar, Sparkles, AlertTriangle, Bookmark, BookmarkCheck } from 'lucide-react'
@@ -56,7 +57,6 @@ export default function AnimeDetailPage({ params }) {
 
   // Sub/Dub state
   const [isDub, setIsDub] = useState(false)
-  const [selectedGogoId, setSelectedGogoId] = useState('')
 
   // ── 1. Fetch AniList Anime Metadata ─────────────────────────────
   const { data: animeData, isLoading: animeLoading, error: animeError } = useQuery({
@@ -77,88 +77,17 @@ export default function AnimeDetailPage({ params }) {
     enabled: !!animeId,
   })
 
-  // Main title for search mapping
-  const searchTitle = useMemo(() => {
-    if (!animeData) return ''
-    return animeData.title.english || animeData.title.romaji || ''
-  }, [animeData])
-
-  // ── 2. Search GogoAnime ID ──────────────────────────────────────
-  const { data: gogoSearchData, isLoading: searchLoading } = useQuery({
-    queryKey: ['gogoSearch', searchTitle, isDub],
-    queryFn: async () => {
-      const query = isDub ? `${searchTitle} (Dub)` : searchTitle
-      const res = await fetch(`/api/gogoanime/search?query=${encodeURIComponent(query)}`)
-      if (!res.ok) throw new Error('Failed to search GogoAnime')
-      return res.json()
-    },
-    enabled: !!searchTitle,
-  })
-
-  // Calculate best Gogo ID using scoring
-  const bestGogoId = useMemo(() => {
-    if (!gogoSearchData?.results?.length || !searchTitle) return ''
-
-    const cleanStr = (s) => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '').replace(/\s+/g, '')
-    const targetClean = cleanStr(searchTitle)
-
-    let bestId = gogoSearchData.results[0].id
-    let bestScore = -1
-
-    gogoSearchData.results.forEach((item) => {
-      const itemClean = cleanStr(item.title)
-      let score = 0
-
-      if (itemClean === targetClean) {
-        score = 100 // exact match
-      } else if (itemClean === targetClean + 'dub' || itemClean === targetClean + 'dubbed') {
-        score = 95 // exact match with dub
-      } else if (itemClean === targetClean + 'sub' || itemClean === targetClean + 'subbed') {
-        score = 95 // exact match with sub
-      } else if (itemClean.startsWith(targetClean)) {
-        score = 80 - Math.abs(itemClean.length - targetClean.length)
-      } else if (itemClean.includes(targetClean)) {
-        score = 60 - Math.abs(itemClean.length - targetClean.length)
-      }
-
-      if (score > bestScore) {
-        bestScore = score
-        bestId = item.id
-      }
-    })
-
-    return bestId
-  }, [gogoSearchData, searchTitle])
-
-  // Auto-select best Gogo ID
-  useEffect(() => {
-    if (bestGogoId) {
-      setSelectedGogoId(bestGogoId)
-    } else {
-      setSelectedGogoId('')
-    }
-  }, [bestGogoId])
-
-  // ── 3. Fetch GogoAnime Details (Episode List) ─────────────────────
-  const { data: gogoInfo, isLoading: infoLoading } = useQuery({
-    queryKey: ['gogoInfo', selectedGogoId],
-    queryFn: async () => {
-      const res = await fetch(`/api/gogoanime/info?id=${selectedGogoId}`)
-      if (!res.ok) throw new Error('Failed to fetch GogoAnime details')
-      return res.json()
-    },
-    enabled: !!selectedGogoId,
-  })
+  const episodeInfo = useMemo(() => animeEpisodeInfo(animeData), [animeData])
 
   const firstEpisode = useMemo(() => {
-    if (!gogoInfo?.episodes?.length) return null
-    return gogoInfo.episodes.find(e => e.episodeNumber === 1) || gogoInfo.episodes[0]
-  }, [gogoInfo])
+    if (!episodeInfo?.episodes?.length) return null
+    return episodeInfo.episodes.find(e => e.episodeNumber === 1) || episodeInfo.episodes[0]
+  }, [episodeInfo])
 
   const sortedEpisodes = useMemo(() => {
-    if (!gogoInfo?.episodes) return []
-    return [...gogoInfo.episodes].sort((a, b) => b.episodeNumber - a.episodeNumber)
-  }, [gogoInfo])
+    if (!episodeInfo?.episodes) return []
+    return [...episodeInfo.episodes].sort((a, b) => b.episodeNumber - a.episodeNumber)
+  }, [episodeInfo])
 
   if (animeLoading) {
     return (
@@ -174,7 +103,7 @@ export default function AnimeDetailPage({ params }) {
       <div className="page-shell mobile-safe-bottom" style={{ maxWidth: 640, margin: '4rem auto', textAlign: 'center' }}>
         <AlertTriangle size={48} color="#ef4444" style={{ marginBottom: '1rem' }} />
         <h2 style={{ color: '#e2e8f0' }}>Anime Not Found</h2>
-        <p style={{ color: '#64748b', marginTop: '0.5rem' }}>We couldn't retrieve the details for this anime.</p>
+        <p style={{ color: '#64748b', marginTop: '0.5rem' }}>We could not retrieve the details for this anime.</p>
         <button onClick={() => router.back()} className="btn-primary" style={{ marginTop: '1.5rem' }}>Go Back</button>
       </div>
     )
@@ -259,7 +188,7 @@ export default function AnimeDetailPage({ params }) {
               {firstEpisode && (
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                   <Link
-                    href={`/anime/watch/${firstEpisode.id}?malId=${animeData.idMal || ''}&ep=${firstEpisode.episodeNumber}&anilistId=${animeId}`}
+                    href={`/anime/watch/${firstEpisode.id}?malId=${animeData.idMal || ''}&ep=${firstEpisode.episodeNumber}&anilistId=${animeData.id}&language=${isDub ? 'dub' : 'sub'}`}
                     className="btn-primary"
                     style={{
                       textDecoration: 'none',
@@ -336,77 +265,6 @@ export default function AnimeDetailPage({ params }) {
           </div>
         </div>
 
-        {/* Version Matches Shelf */}
-        {gogoSearchData?.results?.length > 1 && (
-          <div style={{ marginBottom: '2rem' }}>
-            <h4 style={{ fontSize: '0.75rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 0.75rem' }}>
-              Select Stream Version Match
-            </h4>
-            <div style={{ display: 'flex', gap: '12px', overflowX: 'auto', paddingBottom: '8px' }} className="custom-scrollbar">
-              {gogoSearchData.results.slice(0, 5).map((item) => {
-                const isActive = item.id === selectedGogoId
-                return (
-                  <button
-                    key={item.id}
-                    onClick={() => setSelectedGogoId(item.id)}
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      width: '90px',
-                      flexShrink: 0,
-                      background: 'transparent',
-                      border: 'none',
-                      padding: 0,
-                      cursor: 'pointer',
-                      textAlign: 'left'
-                    }}
-                  >
-                    <div style={{
-                      position: 'relative',
-                      width: '100%',
-                      aspectRatio: '2/3',
-                      borderRadius: '12px',
-                      overflow: 'hidden',
-                      border: isActive ? '2px solid #f47521' : '1px solid rgba(255,255,255,0.08)',
-                      boxShadow: isActive ? '0 0 12px rgba(244,117,33,0.35)' : 'none',
-                      transition: 'all 0.2s ease',
-                      marginBottom: '6px'
-                    }}>
-                      {item.image ? (
-                        <Image src={item.image} alt={item.title} fill sizes="90px" style={{ objectFit: 'cover' }} />
-                      ) : (
-                        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#1c1c2e', color: '#64748b' }}>🎬</div>
-                      )}
-                    </div>
-                    <span style={{
-                      fontSize: '0.68rem',
-                      fontWeight: isActive ? 800 : 600,
-                      color: isActive ? '#f47521' : '#94a3b8',
-                      display: '-webkit-box',
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: 'vertical',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      lineHeight: 1.2
-                    }}>
-                      {item.title}
-                    </span>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Synopsis */}
-        <div style={{ marginBottom: '2.5rem' }}>
-          <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#fff', margin: '0 0 0.5rem', display: 'flex', alignItems: 'center', gap: 8 }}><Info size={16} color="#f47521" /> Synopsis</h3>
-          <p style={{ margin: 0, color: '#cbd5e1', fontSize: '0.875rem', lineHeight: 1.6 }}>
-            {cleanDescription}
-          </p>
-        </div>
-
-        {/* Meta Grid */}
         <section style={{
           display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem',
           padding: '1.25rem', background: 'rgba(255,255,255,0.02)', borderRadius: 20,
@@ -442,17 +300,7 @@ export default function AnimeDetailPage({ params }) {
         <div style={{ marginBottom: '2rem' }}>
           <h3 style={{ fontSize: '1.05rem', fontWeight: 800, color: '#fff', margin: '0 0 1rem', display: 'flex', alignItems: 'center', gap: 8 }}><Tv size={16} color="#f47521" /> Episodes</h3>
           
-          {searchLoading || infoLoading ? (
-            <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem 0' }}>
-              <LoadingSpinner />
-            </div>
-          ) : !selectedGogoId ? (
-            <div style={{ textAlign: 'center', padding: '3rem 1rem', background: 'rgba(255,255,255,0.02)', borderRadius: 20, border: '1px dashed rgba(255,255,255,0.08)' }}>
-              <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>😿</div>
-              <h4 style={{ color: '#cbd5e1', margin: 0, fontWeight: 700 }}>No stream source found</h4>
-              <p style={{ color: '#64748b', fontSize: '0.82rem', marginTop: '0.25rem' }}>This anime may not be released or cataloged on GogoAnime yet.</p>
-            </div>
-          ) : gogoInfo?.episodes?.length === 0 ? (
+          {!episodeInfo?.episodes?.length ? (
             <div style={{ textAlign: 'center', padding: '3rem 1rem', background: 'rgba(255,255,255,0.02)', borderRadius: 20, border: '1px dashed rgba(255,255,255,0.08)' }}>
               <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>⏳</div>
               <h4 style={{ color: '#cbd5e1', margin: 0, fontWeight: 700 }}>Episodes Coming Soon</h4>
@@ -463,7 +311,7 @@ export default function AnimeDetailPage({ params }) {
               {sortedEpisodes.map((ep) => (
                 <Link
                   key={ep.id}
-                  href={`/anime/watch/${ep.id}?malId=${animeData.idMal || ''}&ep=${ep.episodeNumber}&anilistId=${animeId}`}
+                  href={`/anime/watch/${ep.id}?malId=${animeData.idMal || ''}&ep=${ep.episodeNumber}&anilistId=${animeData.id}&language=${isDub ? 'dub' : 'sub'}`}
                   style={{ textDecoration: 'none' }}
                 >
                   <div

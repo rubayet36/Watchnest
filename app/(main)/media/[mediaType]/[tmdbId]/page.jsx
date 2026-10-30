@@ -325,7 +325,6 @@ function StreamPlayer({ tmdbId, mediaType, seasons = [], movie, onClose }) {
           width="100%"
           height="100%"
           className="stream-frame"
-          allowFullScreen
           allow="autoplay; fullscreen *; encrypted-media; picture-in-picture"
           referrerPolicy="origin"
           onLoad={() => setIframeLoaded(true)}

@@ -24,6 +24,7 @@ query ($id: Int) {
     bannerImage
     description
     episodes
+    nextAiringEpisode { episode }
     genres
     averageScore
     season

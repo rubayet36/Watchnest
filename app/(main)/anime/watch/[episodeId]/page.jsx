@@ -1,6 +1,7 @@
 'use client'
 
 import { use, useState, useEffect, useMemo } from 'react'
+import { animeEpisodeInfo } from '@/lib/anime-stream.mjs'
 import { useQuery } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ChevronLeft, Play, Tv, Users, Heart, Info, Calendar, Sparkles, X, SkipForward, AlertTriangle, MonitorPlay } from 'lucide-react'
@@ -19,40 +20,37 @@ export default function AnimeWatchPage({ params }) {
   
   const episodeId = resolvedParams.episodeId
   const malId = searchParams.get('malId')
-  const anilistId = searchParams.get('anilistId') || ''
+  const anilistId = searchParams.get('anilistId') || (/^\d+~ep-/.test(episodeId) ? episodeId.split('~')[0] : '')
+  const language = searchParams.get('language') === 'dub' ? 'dub' : 'sub'
   const epNum = searchParams.get('ep') || '1'
 
-  const animeId = useMemo(() => {
-    if (!episodeId) return ''
-    return episodeId.split('~')[0]
-  }, [episodeId])
-
-  const { data: gogoInfo, isLoading: infoLoading } = useQuery({
-    queryKey: ['gogoInfoWatch', animeId],
+  const { data: episodeInfo, isLoading: infoLoading } = useQuery({
+    queryKey: ['animeWatchInfo', anilistId],
     queryFn: async () => {
-      const res = await fetch(`/api/gogoanime/info?id=${animeId}`)
+      const res = await fetch(`/api/anime/info?id=${anilistId}`)
       if (!res.ok) throw new Error('Failed to fetch anime details')
-      return res.json()
+      return animeEpisodeInfo((await res.json()).Media)
     },
-    enabled: !!animeId,
+    enabled: !!anilistId,
   })
 
   const sortedEpisodes = useMemo(() => {
-    if (!gogoInfo?.episodes) return []
-    return [...gogoInfo.episodes].sort((a, b) => b.episodeNumber - a.episodeNumber)
-  }, [gogoInfo])
+    if (!episodeInfo?.episodes) return []
+    return [...episodeInfo.episodes].sort((a, b) => b.episodeNumber - a.episodeNumber)
+  }, [episodeInfo])
 
-  const [activeServer, setActiveServer] = useState(null)
-  const [iframeLoaded, setIframeLoaded] = useState(false)
+  const [selectedServer, setSelectedServer] = useState(null)
+  const [loadedUrl, setLoadedUrl] = useState('')
   const [adBlockActive, setAdBlockActive] = useState(false)
 
   // ── 1. Fetch Streaming Servers ──────────────────────────────────
-  const { data: watchData, isLoading: watchLoading, error: watchError } = useQuery({
-    queryKey: ['gogoWatch', episodeId, malId, epNum],
+  const { data: watchData, isLoading: watchLoading, error: watchError, refetch } = useQuery({
+    queryKey: ['animeStream', anilistId, malId, epNum, language],
     queryFn: async () => {
-      const res = await fetch(`/api/gogoanime/watch?episodeId=${episodeId}&malId=${malId || ''}&ep=${epNum}`)
-      if (!res.ok) throw new Error('Failed to fetch stream servers')
-      return res.json()
+      const res = await fetch(`/api/anime/stream?${new URLSearchParams({ anilistId, malId: malId || '', ep: epNum, language })}`)
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Failed to fetch stream servers')
+      return json
     },
     enabled: !!episodeId,
   })
@@ -69,33 +67,28 @@ export default function AnimeWatchPage({ params }) {
     staleTime: 3600_000, // 1 hour
   })
 
-  // Select default server
-  useEffect(() => {
-    if (watchData?.servers?.length > 0) {
-      // Check localStorage preference
-      const savedServer = localStorage.getItem('last_anime_server')
-      const matched = watchData.servers.find(s => s.name === savedServer)
-      setActiveServer(matched || watchData.servers[0])
-    }
-  }, [watchData])
+  const activeServer = watchData?.servers?.find(server => server.name === selectedServer?.name) || watchData?.servers?.[0]
+
+  const iframeLoaded = !!activeServer?.url && loadedUrl === activeServer.url
 
   // Save watch progress to history list
   useEffect(() => {
-    if (anilistId && gogoInfo) {
+    if (anilistId && episodeInfo) {
       addToWatchHistory({
         id: anilistId,
-        title: gogoInfo.title,
-        poster_path: gogoInfo.image,
+        title: episodeInfo.title,
+        poster_path: episodeInfo.image,
         media_type: 'anime',
         progress: { epNum, episodeId }
       })
     }
-  }, [anilistId, gogoInfo, epNum, episodeId])
+  }, [anilistId, episodeInfo, epNum, episodeId])
 
   // Save server preference
   const handleServerChange = (server) => {
-    setIframeLoaded(false)
-    setActiveServer(server)
+    if (server.url === activeServer?.url) return
+    setLoadedUrl('')
+    setSelectedServer(server)
     localStorage.setItem('last_anime_server', server.name)
   }
 
@@ -141,7 +134,8 @@ export default function AnimeWatchPage({ params }) {
       <div className="page-shell mobile-safe-bottom" style={{ maxWidth: 640, margin: '4rem auto', textAlign: 'center', color: '#fff' }}>
         <AlertTriangle size={48} color="#ef4444" style={{ marginBottom: '1rem' }} />
         <h2 style={{ color: '#e2e8f0' }}>Stream Unresolvable</h2>
-        <p style={{ color: '#64748b', marginTop: '0.5rem' }}>Failed to load streaming options for this episode.</p>
+        <p style={{ color: '#64748b', marginTop: '0.5rem' }}>{watchError?.message || watchData?.message || 'No streaming options are available for this episode.'}</p>
+        <button onClick={() => refetch()} className="btn-primary" style={{ marginTop: '1rem' }}>Retry</button>
         <button onClick={() => router.back()} className="btn-primary" style={{ marginTop: '1.5rem' }}>Go Back</button>
       </div>
     )
@@ -224,10 +218,11 @@ export default function AnimeWatchPage({ params }) {
                 width="100%"
                 height="100%"
                 style={{ border: 'none', position: 'absolute', inset: 0 }}
+                sandbox="allow-scripts allow-same-origin allow-forms allow-presentation"
                 allowFullScreen
                 allow="autoplay; fullscreen *; encrypted-media; picture-in-picture"
                 referrerPolicy="origin"
-                onLoad={() => setIframeLoaded(true)}
+                onLoad={() => setLoadedUrl(activeServer.url)}
               />
 
               {/* Ad interceptor notice overlay */}
@@ -326,7 +321,7 @@ export default function AnimeWatchPage({ params }) {
                   return (
                     <Link
                       key={ep.id}
-                      href={`/anime/watch/${ep.id}?malId=${malId || ''}&ep=${ep.episodeNumber}&anilistId=${anilistId || ''}`}
+                      href={`/anime/watch/${ep.id}?malId=${malId || ''}&ep=${ep.episodeNumber}&anilistId=${anilistId || ''}&language=${language}`}
                       style={{ textDecoration: 'none' }}
                     >
                       <div
@@ -355,8 +350,8 @@ export default function AnimeWatchPage({ params }) {
                       >
                         {/* Episode Still (using a placeholder or generic icon) */}
                         <div style={{ width: '80px', height: '45px', borderRadius: '6px', overflow: 'hidden', position: 'relative', flexShrink: 0, background: '#1c1c2e' }}>
-                          {gogoInfo?.image ? (
-                            <Image src={gogoInfo.image} alt="" fill sizes="80px" style={{ objectFit: 'cover', opacity: isActive ? 0.9 : 0.7 }} />
+                          {episodeInfo?.image ? (
+                            <Image src={episodeInfo.image} alt="" fill sizes="80px" style={{ objectFit: 'cover', opacity: isActive ? 0.9 : 0.7 }} />
                           ) : (
                             <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1rem', color: '#64748b' }}>🎬</div>
                           )}
